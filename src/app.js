@@ -94,20 +94,23 @@ function switchPlayer(nextPlayer) {
     state.isDrawingDrag = false;
     state.isErasingDrag = false;
     
-    DOM.rollBtn.disabled = false;
+    // In Online mode, disable controls if it's not local player's turn
+    const isMyTurn = !state.isOnline || (state.activePlayer === state.localPlayerIndex);
+    
+    DOM.rollBtn.disabled = !isMyTurn;
     DOM.rotateBtn.disabled = true;
     DOM.passBtn.disabled = true;
     DOM.rotateBtn.classList.remove("active-ready");
     DOM.passBtn.classList.remove("active-ready");
     
-    DOM.rollResultText.textContent = "Roll the dice to see your dimensions!";
+    const activeName = state.playerNames[state.activePlayer] || `Player ${state.activePlayer}`;
+    DOM.turnText.textContent = isMyTurn ? "Your Turn!" : `${activeName}'s Turn`;
+    DOM.rollResultText.textContent = isMyTurn ? "Roll the dice to see your dimensions!" : `Waiting for ${activeName} to roll...`;
+    
     if (DOM.doublesModal) DOM.doublesModal.classList.remove("active");
     if (DOM.drawControlsBar) DOM.drawControlsBar.classList.remove("active");
     
     document.body.className = `player-active-p${state.activePlayer}`;
-    
-    const activeName = state.playerNames[state.activePlayer];
-    DOM.turnText.textContent = `${activeName}'s Turn`;
     
     const activeTheme = state.colors[state.playerColors[state.activePlayer]];
     const nextPlayerIndex = (nextPlayer % state.playersCount) || state.playersCount;
@@ -127,8 +130,8 @@ function switchPlayer(nextPlayer) {
         if (els) {
             if (i === state.activePlayer) {
                 els.card.classList.add("active-turn");
-                els.card.style.borderColor = activeTheme.hex;
-                els.card.style.boxShadow = `0 0 15px ${activeTheme.glow}`;
+                els.card.style.borderColor = activeTheme ? activeTheme.hex : "#00f0ff";
+                els.card.style.boxShadow = `0 0 15px ${activeTheme ? activeTheme.glow : "rgba(0,240,255,0.45)"}`;
             } else {
                 els.card.classList.remove("active-turn");
                 els.card.style.borderColor = "var(--border-glass)";
@@ -145,8 +148,8 @@ function switchPlayer(nextPlayer) {
         
         DOM.rollBtn.disabled = true;
         DOM.rotateBtn.disabled = true;
-        DOM.passBtn.disabled = false;
-        DOM.passBtn.classList.add("active-ready");
+        DOM.passBtn.disabled = !isMyTurn;
+        if (isMyTurn) DOM.passBtn.classList.add("active-ready");
         
         DOM.rollResultText.innerHTML = "<span style='color:var(--neon-emerald);font-weight:700;text-shadow:0 0 10px rgba(0,255,170,0.3);'>COSMIC COMEBACK ACTIVE!</span>";
         showToast(DOM, "Cosmic Comeback! 1x1 Seed granted to break the blockade.");
@@ -164,8 +167,7 @@ function switchPlayer(nextPlayer) {
         DOM.gameAutoRollChk.style.accentColor = activeTheme.hex;
     }
     
-    // Auto-roll check
-    if (state.autoRoll && !state.isGameOver && !state.hasRolled) {
+    if (state.autoRoll && !state.isGameOver && !state.hasRolled && isMyTurn) {
         setTimeout(() => {
             if (state.autoRoll && !state.hasRolled && !state.isGameOver) {
                 triggerDiceRoll();
@@ -176,6 +178,7 @@ function switchPlayer(nextPlayer) {
 
 function triggerDiceRoll() {
     if (state.hasRolled || state.isGameOver) return;
+    if (state.isOnline && state.activePlayer !== state.localPlayerIndex) return;
     
     initAudio();
     DOM.rollBtn.disabled = true;
@@ -462,8 +465,8 @@ function endMatch() {
     for (let i = 1; i <= state.playersCount; i++) {
         playerScores.push({
             id: i,
-            name: state.playerNames[i],
-            color: state.playerColors[i],
+            name: state.playerNames[i] || `Player ${i}`,
+            color: state.playerColors[i] || "cyan",
             score: counts[i] || 0
         });
     }
@@ -496,6 +499,8 @@ function canvasLoop() {
 }
 
 function handleMouseMove(e) {
+    if (state.isOnline && state.activePlayer !== state.localPlayerIndex) return;
+    
     const isDrawingMode = state.activeSpecialMove === 'wall-drawing' || state.activeSpecialMove === 'custom36-drawing';
     if ((!state.hasRolled && !isDrawingMode) || state.isGameOver) return;
     
@@ -546,6 +551,7 @@ function handleMouseLeave() {
 }
 
 function handleGridClick() {
+    if (state.isOnline && state.activePlayer !== state.localPlayerIndex) return;
     if (hoverState.row === -1 || hoverState.col === -1 || state.isGameOver) return;
     if (!state.hasRolled) return;
     
@@ -594,6 +600,8 @@ function handleGridClick() {
 
 function toggleRotation() {
     if (!state.hasRolled) return;
+    if (state.isOnline && state.activePlayer !== state.localPlayerIndex) return;
+    
     state.isRotated = !state.isRotated;
     playHoverTick();
     
@@ -625,7 +633,247 @@ async function syncGameStateToSupabase() {
     });
 }
 
+// --- ONLINE MULTIPLAYER HANDLERS ---
+async function handleCreateRoom() {
+    try {
+        const p1Name = document.getElementById('p1-name')?.value.trim() || "Host Player";
+        const p1Color = state.playerColors[1] || "cyan";
+        
+        showToast(DOM, "Creating room in Supabase...");
+        
+        const result = await createOnlineRoom({
+            hostName: p1Name,
+            hostColor: p1Color,
+            gridSize: state.gridSize,
+            mapType: state.mapType,
+            playersCount: state.playersCount,
+            enableAdvancedRules: DOM.advancedRulesChk?.checked || false,
+            enableTeamMode: DOM.teamModeChk?.checked || false
+        });
+        
+        state.isOnline = true;
+        state.roomId = result.room_id;
+        state.roomCode = result.room_code;
+        state.localPlayerIndex = 1;
+        state.isHost = true;
+        
+        openLobbyModal(result.room_code);
+        subscribeAndTrackRoom(result.room_id);
+    } catch (e) {
+        playErrorTone();
+        showToast(DOM, `Error creating room: ${e.message}`);
+    }
+}
+
+async function handleJoinRoom() {
+    const code = DOM.roomCodeInput?.value.trim().toUpperCase();
+    if (!code || code.length !== 6) {
+        playErrorTone();
+        showToast(DOM, "Please enter a valid 6-character room code!");
+        return;
+    }
+    
+    try {
+        const pName = document.getElementById('p1-name')?.value.trim() || "Guest Player";
+        const pColor = state.playerColors[2] || "pink";
+        
+        showToast(DOM, `Joining room ${code}...`);
+        
+        const result = await joinOnlineRoomByCode({
+            roomCode: code,
+            playerName: pName,
+            playerColor: pColor
+        });
+        
+        state.isOnline = true;
+        state.roomId = result.room_id;
+        state.roomCode = result.room_code;
+        state.localPlayerIndex = result.player_index;
+        state.isHost = false;
+        
+        DOM.joinModal?.classList.remove("active");
+        openLobbyModal(result.room_code);
+        subscribeAndTrackRoom(result.room_id);
+    } catch (e) {
+        playErrorTone();
+        showToast(DOM, `Error joining room: ${e.message}`);
+    }
+}
+
+function openLobbyModal(code) {
+    if (!DOM.lobbyModal) return;
+    if (DOM.lobbyRoomCode) {
+        DOM.lobbyRoomCode.textContent = code;
+        DOM.lobbyRoomCode.onclick = () => {
+            navigator.clipboard.writeText(code);
+            showToast(DOM, "Room code copied to clipboard!");
+        };
+    }
+    
+    if (DOM.lobbyStartBtn) {
+        if (state.isHost) {
+            DOM.lobbyStartBtn.style.display = "block";
+            DOM.lobbyStartBtn.textContent = "Start Match";
+        } else {
+            DOM.lobbyStartBtn.style.display = "none";
+        }
+    }
+    
+    DOM.lobbyModal.classList.add("active");
+}
+
+function subscribeAndTrackRoom(roomId) {
+    subscribeToRoom(roomId, {
+        onGameStateUpdate: (newGameState) => {
+            state.board = newGameState.board || state.board;
+            state.activePlayer = newGameState.active_player;
+            state.currentRoll = newGameState.current_roll || [0, 0];
+            state.hasRolled = newGameState.has_rolled;
+            state.consecutivePasses = newGameState.consecutive_passes;
+            state.isGameOver = newGameState.is_game_over;
+            
+            if (state.hasRolled && state.currentRoll[0] > 0) {
+                alignDie(DOM.die1, state.currentRoll[0]);
+                alignDie(DOM.die2, state.currentRoll[1]);
+                DOM.rollResultText.innerHTML = `Player ${state.activePlayer} rolled a <strong>${state.currentRoll[0]} x ${state.currentRoll[1]}</strong> block!`;
+            }
+            
+            switchPlayer(state.activePlayer);
+        },
+        onPlayersUpdate: async () => {
+            refreshLobbyPlayers(roomId);
+        },
+        onRoomStatusUpdate: (updatedRoom) => {
+            if (updatedRoom.status === 'playing') {
+                DOM.lobbyModal?.classList.remove("active");
+                startOnlineGameSession(updatedRoom);
+            }
+        },
+        onBroadcastHover: (hoverData) => {
+            if (hoverData.playerIndex !== state.localPlayerIndex) {
+                remoteHoverState = hoverData;
+            }
+        },
+        onPresenceSync: (presenceState) => {
+            refreshLobbyPresence(presenceState);
+        }
+    });
+    
+    trackPresence({
+        player_index: state.localPlayerIndex,
+        name: state.playerNames[state.localPlayerIndex] || `Player ${state.localPlayerIndex}`,
+        online_at: new Date().toISOString()
+    });
+    
+    refreshLobbyPlayers(roomId);
+}
+
+async function refreshLobbyPlayers(roomId) {
+    try {
+        const { room, players } = await fetchRoomDetails(roomId);
+        if (DOM.lobbyPlayersList) {
+            DOM.lobbyPlayersList.innerHTML = "";
+            
+            state.playersCount = room.players_count;
+            state.gridSize = room.grid_size;
+            state.mapType = room.map_type;
+            
+            players.forEach(p => {
+                state.playerNames[p.player_index] = p.name;
+                state.playerColors[p.player_index] = p.color;
+                
+                const slot = document.createElement("div");
+                slot.className = `lobby-player-slot ${p.player_index === state.localPlayerIndex ? 'active-slot' : ''}`;
+                
+                const info = document.createElement("div");
+                info.className = "lobby-player-info";
+                
+                const dot = document.createElement("div");
+                dot.className = "presence-dot online";
+                
+                const name = document.createElement("span");
+                name.style.fontWeight = "700";
+                name.textContent = `P${p.player_index}: ${p.name} ${p.player_index === 1 ? '(Host)' : ''}`;
+                
+                info.appendChild(dot);
+                info.appendChild(name);
+                
+                slot.appendChild(info);
+                DOM.lobbyPlayersList.appendChild(slot);
+            });
+        }
+    } catch (e) {
+        console.error("Error refreshing lobby players:", e);
+    }
+}
+
+function refreshLobbyPresence(presenceState) {
+    // Sync online presence indicators
+    console.log("Presence sync:", presenceState);
+}
+
+async function startOnlineGameSession(room) {
+    const { players, gameState } = await fetchRoomDetails(state.roomId);
+    
+    players.forEach(p => {
+        state.playerNames[p.player_index] = p.name;
+        state.playerColors[p.player_index] = p.color;
+    });
+    
+    state.board = gameState.board || state.board;
+    state.activePlayer = gameState.active_player || 1;
+    
+    buildScoreboardUI(DOM, state);
+    updateThemeStyles(state);
+    
+    DOM.setupScreen.classList.remove("active");
+    DOM.gameScreen.classList.add("active");
+    
+    switchPlayer(state.activePlayer);
+    resizeCanvas(DOM.canvas, state);
+    playPlaceBlockSound();
+    
+    showToast(DOM, `Match started! You are Player ${state.localPlayerIndex}.`);
+}
+
 function setupEventListeners() {
+    // Mode Switcher Tabs
+    DOM.modeLocalBtn?.addEventListener("click", () => {
+        DOM.modeLocalBtn.classList.add("active");
+        DOM.modeOnlineBtn?.classList.remove("active");
+        DOM.startGameBtn?.classList.remove("hidden");
+        DOM.onlineControlsGroup?.classList.add("hidden");
+        state.isOnline = false;
+    });
+    
+    DOM.modeOnlineBtn?.addEventListener("click", () => {
+        DOM.modeOnlineBtn.classList.add("active");
+        DOM.modeLocalBtn?.classList.remove("active");
+        DOM.startGameBtn?.classList.add("hidden");
+        DOM.onlineControlsGroup?.classList.remove("hidden");
+        state.isOnline = true;
+    });
+    
+    // Auth & Room Buttons
+    DOM.googleAuthBtn?.addEventListener("click", signInWithGoogle);
+    DOM.createRoomBtn?.addEventListener("click", handleCreateRoom);
+    DOM.joinRoomBtn?.addEventListener("click", () => DOM.joinModal?.classList.add("active"));
+    DOM.joinCancelBtn?.addEventListener("click", () => DOM.joinModal?.classList.remove("active"));
+    DOM.joinConfirmBtn?.addEventListener("click", handleJoinRoom);
+    
+    DOM.lobbyStartBtn?.addEventListener("click", async () => {
+        if (!state.isHost) return;
+        await updateRoomStatus(state.roomId, 'playing');
+    });
+    
+    DOM.lobbyLeaveBtn?.addEventListener("click", () => {
+        unsubscribeFromRoom();
+        DOM.lobbyModal?.classList.remove("active");
+        state.isOnline = false;
+        state.roomId = null;
+        showToast(DOM, "Left the room.");
+    });
+    
     DOM.startGameBtn?.addEventListener("click", async () => {
         initAudio();
         

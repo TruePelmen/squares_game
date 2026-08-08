@@ -31,6 +31,22 @@
                         <p class="subtitle">The Ultimate Territory Capture Duel</p>
                     </div>
                     
+                    <!-- Game Mode Selector Tabs -->
+                    <div class="mode-selector-tabs">
+                        <button id="mode-local-btn" class="mode-tab-btn active"><i class="fa-solid fa-laptop"></i> Local Pass &amp; Play</button>
+                        <button id="mode-online-btn" class="mode-tab-btn"><i class="fa-solid fa-globe"></i> Online Multiplayer</button>
+                    </div>
+                    
+                    <div id="auth-section" style="width: 100%; margin-bottom: 15px; display: flex; justify-content: center;">
+                        <button id="google-auth-btn" class="google-login-btn">
+                            <i class="fa-brands fa-google"></i> Sign in with Google
+                        </button>
+                        <div id="user-profile-badge" class="user-profile-badge hidden">
+                            <img id="user-avatar" src="" alt="Avatar">
+                            <span id="user-name">User</span>
+                        </div>
+                    </div>
+                    
                     <!-- Player Count Selector -->
                     <div class="setting-option" style="width: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px;">
                         <span class="option-label">Players Count</span>
@@ -315,6 +331,15 @@
                         <button id="start-game-btn" class="action-btn-large pulse-glow-btn" style="max-width: 100%;">
                             <span>Engage Match</span> <i class="fa-solid fa-play"></i>
                         </button>
+                        
+                        <div id="online-controls-group" class="hidden" style="display: flex; gap: 12px; width: 100%;">
+                            <button id="create-room-btn" class="action-btn-large pulse-glow-btn" style="flex: 1; padding: 14px 10px; font-size: 0.9rem;">
+                                <i class="fa-solid fa-plus-circle"></i> Create Room
+                            </button>
+                            <button id="join-room-btn" class="action-btn-large" style="flex: 1; padding: 14px 10px; font-size: 0.9rem; background: rgba(0,240,255,0.08); border-color: var(--neon-cyan); color: var(--neon-cyan);">
+                                <i class="fa-solid fa-right-to-bracket"></i> Join with Code
+                            </button>
+                        </div>
                         
                         <button id="toggle-rules-btn" class="text-link-btn">
                             <i class="fa-solid fa-circle-info"></i> How to Play
