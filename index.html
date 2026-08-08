@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Squares &bull; The Territory Capture Game</title>
+    <!-- Google Fonts for futuristic, clean typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for high-quality game icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Background Ambient Decorative Elements -->
+    <div class="ambient-glow bg-glow-1"></div>
+    <div class="ambient-glow bg-glow-2"></div>
+    
+    <div id="app-container">
+        <!-- ==================== SETUP / LAUNCH SCREEN ==================== -->
+        <section id="setup-screen" class="glass-panel active">
+            <div class="setup-layout">
+                <!-- Left Column: Branding and Players Selection -->
+                <div class="setup-left-col">
+                    <div class="brand">
+                        <div class="logo-icon">
+                            <i class="fa-solid fa-shapes"></i>
+                        </div>
+                        <h1>SQUARE<span>S</span></h1>
+                        <p class="subtitle">The Ultimate Territory Capture Duel</p>
+                    </div>
+                    
+                    <!-- Player Count Selector -->
+                    <div class="setting-option" style="width: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                        <span class="option-label">Players Count</span>
+                        <div class="grid-size-selector" id="player-count-selector" style="grid-template-columns: repeat(5, 1fr); width: 100%;">
+                            <button class="size-btn active" data-count="2" style="padding: 10px 5px;">
+                                <span class="size-num" style="font-size: 0.95rem;">2 Players</span>
+                            </button>
+                            <button class="size-btn" data-count="3" style="padding: 10px 5px;">
+                                <span class="size-num" style="font-size: 0.95rem;">3 Players</span>
+                            </button>
+                            <button class="size-btn" data-count="4" style="padding: 10px 5px;">
+                                <span class="size-num" style="font-size: 0.95rem;">4 Players</span>
+                            </button>
+                            <button class="size-btn" data-count="5" style="padding: 10px 5px;">
+                                <span class="size-num" style="font-size: 0.95rem;">5 Players</span>
+                            </button>
+                            <button class="size-btn" data-count="6" style="padding: 10px 5px;">
+                                <span class="size-num" style="font-size: 0.95rem;">6 Players</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="setup-grid" id="setup-grid">
+                        <!-- Player 1 Customizer -->
+                        <div class="player-card p1-setup glow-border" id="p1-card">
+                            <h3><i class="fa-solid fa-user-ninja"></i> Player 1</h3>
+                            <div class="input-group">
+                                <label for="p1-name">Name</label>
+                                <input type="text" id="p1-name" value="Cyber Blue" placeholder="Player 1 Name">
+                            </div>
+                            <div class="color-picker-group">
+                                <label>Neon Color</label>
+                                <div class="color-options" id="p1-colors">
+                                    <button class="color-btn active" data-color="cyan" style="--c: var(--neon-cyan);"></button>
+                                    <button class="color-btn" data-color="pink" style="--c: var(--neon-pink);"></button>
+                                    <button class="color-btn" data-color="emerald" style="--c: var(--neon-emerald);"></button>
+                                    <button class="color-btn" data-color="purple" style="--c: var(--neon-purple);"></button>
+                                    <button class="color-btn" data-color="gold" style="--c: var(--neon-gold);"></button>
+                                    <button class="color-btn" data-color="orange" style="--c: var(--neon-orange);"></button>
+                                </div>
+                            </div>
+                            <div class="team-selector-group hidden" style="margin-top: 5px;">
+                                <label>Joined Team</label>
+                                <div class="team-options" id="p1-teams">
+                                    <button class="team-btn active" data-team="1">Team 1</button>
+                                    <button class="team-btn" data-team="2">Team 2</button>
+                                    <button class="team-btn" data-team="3">Team 3</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Player 2 Customizer -->
+                        <div class="player-card p2-setup glow-border" id="p2-card">
+                            <h3><i class="fa-solid fa-user-astronaut"></i> Player 2</h3>
+                            <div class="input-group">
+                                <label for="p2-name">Name</label>
+                                <input type="text" id="p2-name" value="Neon Pink" placeholder="Player 2 Name">
+                            </div>
+                            <div class="color-picker-group">
+                                <label>Neon Color</label>
+                                <div class="color-options" id="p2-colors">
+                                    <button class="color-btn" data-color="cyan" style="--c: var(--neon-cyan);"></button>
+                                    <button class="color-btn active" data-color="pink" style="--c: var(--neon-pink);"></button>
+                                    <button class="color-btn" data-color="emerald" style="--c: var(--neon-emerald);"></button>
+                                    <button class="color-btn" data-color="purple" style="--c: var(--neon-purple);"></button>
+                                    <button class="color-btn" data-color="gold" style="--c: var(--neon-gold);"></button>
+                                    <button class="color-btn" data-color="orange" style="--c: var(--neon-orange);"></button>
+                                </div>
+                            </div>
+                            <div class="team-selector-group hidden" style="margin-top: 5px;">
+                                <label>Joined Team</label>
+                                <div class="team-options" id="p2-teams">
+                                    <button class="team-btn" data-team="1">Team 1</button>
+                                    <button class="team-btn active" data-team="2">Team 2</button>
+                                    <button class="team-btn" data-team="3">Team 3</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Player 3 Customizer -->
+                        <div class="player-card p3-setup glow-border hidden" id="p3-card">
+                            <h3><i class="fa-solid fa-user-secret"></i> Player 3</h3>
+                            <div class="input-group">
+                                <label for="p3-name">Name</label>
+                                <input type="text" id="p3-name" value="Emerald Rogue" placeholder="Player 3 Name">
+                            </div>
+                            <div class="color-picker-group">
+                                <label>Neon Color</label>
+                                <div class="color-options" id="p3-colors">
+                                    <button class="color-btn" data-color="cyan" style="--c: var(--neon-cyan);"></button>
+                                    <button class="color-btn" data-color="pink" style="--c: var(--neon-pink);"></button>
+                                    <button class="color-btn active" data-color="emerald" style="--c: var(--neon-emerald);"></button>
+                                    <button class="color-btn" data-color="purple" style="--c: var(--neon-purple);"></button>
+                                    <button class="color-btn" data-color="gold" style="--c: var(--neon-gold);"></button>
+                                    <button class="color-btn" data-color="orange" style="--c: var(--neon-orange);"></button>
+                                </div>
+                            </div>
+                            <div class="team-selector-group hidden" style="margin-top: 5px;">
+                                <label>Joined Team</label>
+                                <div class="team-options" id="p3-teams">
+                                    <button class="team-btn active" data-team="1">Team 1</button>
+                                    <button class="team-btn" data-team="2">Team 2</button>
+                                    <button class="team-btn" data-team="3">Team 3</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Player 4 Customizer -->
+                        <div class="player-card p4-setup glow-border hidden" id="p4-card">
+                            <h3><i class="fa-solid fa-user-tie"></i> Player 4</h3>
+                            <div class="input-group">
+                                <label for="p4-name">Name</label>
+                                <input type="text" id="p4-name" value="Purple Monarch" placeholder="Player 4 Name">
+                            </div>
+                            <div class="color-picker-group">
+                                <label>Neon Color</label>
+                                <div class="color-options" id="p4-colors">
+                                    <button class="color-btn" data-color="cyan" style="--c: var(--neon-cyan);"></button>
+                                    <button class="color-btn" data-color="pink" style="--c: var(--neon-pink);"></button>
+                                    <button class="color-btn" data-color="emerald" style="--c: var(--neon-emerald);"></button>
+                                    <button class="color-btn active" data-color="purple" style="--c: var(--neon-purple);"></button>
+                                    <button class="color-btn" data-color="gold" style="--c: var(--neon-gold);"></button>
+                                    <button class="color-btn" data-color="orange" style="--c: var(--neon-orange);"></button>
+                                </div>
+                            </div>
+                            <div class="team-selector-group hidden" style="margin-top: 5px;">
+                                <label>Joined Team</label>
+                                <div class="team-options" id="p4-teams">
+                                    <button class="team-btn" data-team="1">Team 1</button>
+                                    <button class="team-btn active" data-team="2">Team 2</button>
+                                    <button class="team-btn" data-team="3">Team 3</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Player 5 Customizer -->
+                        <div class="player-card p5-setup glow-border hidden" id="p5-card">
+                            <h3><i class="fa-solid fa-user-graduate"></i> Player 5</h3>
+                            <div class="input-group">
+                                <label for="p5-name">Name</label>
+                                <input type="text" id="p5-name" value="Golden Sage" placeholder="Player 5 Name">
+                            </div>
+                            <div class="color-picker-group">
+                                <label>Neon Color</label>
+                                <div class="color-options" id="p5-colors">
+                                    <button class="color-btn" data-color="cyan" style="--c: var(--neon-cyan);"></button>
+                                    <button class="color-btn" data-color="pink" style="--c: var(--neon-pink);"></button>
+                                    <button class="color-btn" data-color="emerald" style="--c: var(--neon-emerald);"></button>
+                                    <button class="color-btn" data-color="purple" style="--c: var(--neon-purple);"></button>
+                                    <button class="color-btn active" data-color="gold" style="--c: var(--neon-gold);"></button>
+                                    <button class="color-btn" data-color="orange" style="--c: var(--neon-orange);"></button>
+                                </div>
+                            </div>
+                            <div class="team-selector-group hidden" style="margin-top: 5px;">
+                                <label>Joined Team</label>
+                                <div class="team-options" id="p5-teams">
+                                    <button class="team-btn active" data-team="1">Team 1</button>
+                                    <button class="team-btn" data-team="2">Team 2</button>
+                                    <button class="team-btn" data-team="3">Team 3</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Player 6 Customizer -->
+                        <div class="player-card p6-setup glow-border hidden" id="p6-card">
+                            <h3><i class="fa-solid fa-user-crown"></i> Player 6</h3>
+                            <div class="input-group">
+                                <label for="p6-name">Name</label>
+                                <input type="text" id="p6-name" value="Orange Overlord" placeholder="Player 6 Name">
+                            </div>
+                            <div class="color-picker-group">
+                                <label>Neon Color</label>
+                                <div class="color-options" id="p6-colors">
+                                    <button class="color-btn" data-color="cyan" style="--c: var(--neon-cyan);"></button>
+                                    <button class="color-btn" data-color="pink" style="--c: var(--neon-pink);"></button>
+                                    <button class="color-btn" data-color="emerald" style="--c: var(--neon-emerald);"></button>
+                                    <button class="color-btn" data-color="purple" style="--c: var(--neon-purple);"></button>
+                                    <button class="color-btn" data-color="gold" style="--c: var(--neon-gold);"></button>
+                                    <button class="color-btn active" data-color="orange" style="--c: var(--neon-orange);"></button>
+                                </div>
+                            </div>
+                            <div class="team-selector-group hidden" style="margin-top: 5px;">
+                                <label>Joined Team</label>
+                                <div class="team-options" id="p6-teams">
+                                    <button class="team-btn" data-team="1">Team 1</button>
+                                    <button class="team-btn active" data-team="2">Team 2</button>
+                                    <button class="team-btn" data-team="3">Team 3</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right Column: Settings Card & Actions -->
+                <div class="setup-right-col">
+                    <!-- Grid Settings -->
+                    <div class="settings-card glass-panel-inner">
+                        <h3><i class="fa-solid fa-sliders"></i> Match Configuration</h3>
+                        <div class="settings-controls">
+                            <div class="setting-option">
+                                <span class="option-label">Grid Size</span>
+                                <div class="grid-size-selector" id="grid-size-selector" style="grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 8px;">
+                                    <button class="size-btn" data-size="15" style="padding: 10px 5px;">
+                                        <span class="size-num" style="font-size: 0.85rem;">15 x 15</span>
+                                        <span class="size-desc" style="font-size: 0.58rem;">Fast Match</span>
+                                    </button>
+                                    <button class="size-btn active" data-size="20" style="padding: 10px 5px;">
+                                        <span class="size-num" style="font-size: 0.85rem;">20 x 20</span>
+                                        <span class="size-desc" style="font-size: 0.58rem;">Balanced</span>
+                                    </button>
+                                    <button class="size-btn" data-size="30" style="padding: 10px 5px;">
+                                        <span class="size-num" style="font-size: 0.85rem;">30 x 30</span>
+                                        <span class="size-desc" style="font-size: 0.58rem;">Tactical</span>
+                                    </button>
+                                    <button class="size-btn" data-size="45" style="padding: 10px 5px;">
+                                        <span class="size-num" style="font-size: 0.85rem;">45 x 45</span>
+                                        <span class="size-desc" style="font-size: 0.58rem;">Mega</span>
+                                    </button>
+                                    <button class="size-btn" data-size="60" style="padding: 10px 5px;">
+                                        <span class="size-num" style="font-size: 0.85rem;">60 x 60</span>
+                                        <span class="size-desc" style="font-size: 0.58rem;">Colossus</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="setting-option" style="margin-top: 15px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
+                                <span class="option-label">Or Custom Square Size (10 - 80)</span>
+                                <input type="number" id="custom-size-input" class="glow-border" min="10" max="80" placeholder="e.g. 40" style="width: 100%; max-width: 180px; padding: 10px 14px; background: rgba(0,0,0,0.25); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); color: var(--text-primary); font-family: var(--font-heading); font-size: 0.95rem; font-weight: 600; text-align: center; outline: none; transition: var(--transition-fast);">
+                            </div>
+                            <div class="setting-option" style="margin-top: 15px;">
+                                <span class="option-label">Board Configuration (Map Style)</span>
+                                <div class="grid-size-selector" id="map-style-selector" style="grid-template-columns: repeat(5, 1fr); margin-top: 8px;">
+                                    <button class="size-btn active" data-map="classic" style="padding: 10px 5px;">
+                                        <span class="size-num" style="font-size: 0.85rem;">Classic</span>
+                                        <span class="size-desc" style="font-size: 0.6rem;">Open Void</span>
+                                    </button>
+                                    <button class="size-btn" data-map="asteroids" style="padding: 10px 5px;">
+                                        <span class="size-num" style="font-size: 0.85rem;">Asteroids</span>
+                                        <span class="size-desc" style="font-size: 0.6rem;">Scattered Rocks</span>
+                                    </button>
+                                    <button class="size-btn" data-map="cross" style="padding: 10px 5px;">
+                                        <span class="size-num" style="font-size: 0.85rem;">Cross</span>
+                                        <span class="size-desc" style="font-size: 0.6rem;">Nebula Wall</span>
+                                    </button>
+                                    <button class="size-btn" data-map="quadrants" style="padding: 10px 5px;">
+                                        <span class="size-num" style="font-size: 0.85rem;">Quadrants</span>
+                                        <span class="size-desc" style="font-size: 0.6rem;">Four Pillars</span>
+                                    </button>
+                                    <button class="size-btn" data-map="blackhole" style="padding: 10px 5px;">
+                                        <span class="size-num" style="font-size: 0.85rem;">Black Hole</span>
+                                        <span class="size-desc" style="font-size: 0.6rem;">Center Void</span>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="setting-option" style="margin-top: 15px;">
+                                <span class="option-label">Doubles Mechanics</span>
+                                <label class="toggle-switch-label" style="display: flex; align-items: center; gap: 12px; cursor: pointer; font-size: 0.85rem; color: var(--text-muted);">
+                                    <input type="checkbox" id="advanced-rules-chk" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--neon-cyan);">
+                                    <span>Enable Advanced Rules (1x1 to 6x6 Custom Rules)</span>
+                                </label>
+                            </div>
+                            
+                            <div class="setting-option" style="margin-top: 15px;">
+                                <span class="option-label">Dice Settings</span>
+                                <label class="toggle-switch-label" style="display: flex; align-items: center; gap: 12px; cursor: pointer; font-size: 0.85rem; color: var(--text-muted);">
+                                    <input type="checkbox" id="auto-roll-chk" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--neon-cyan);">
+                                    <span>Auto-Roll Dice (Rolls automatically on turn start)</span>
+                                </label>
+                            </div>
+
+                             <div class="setting-option" id="team-mode-option" style="margin-top: 15px; display: none;">
+                                <span class="option-label">Team Configuration</span>
+                                <label class="toggle-switch-label" style="display: flex; align-items: center; gap: 12px; cursor: pointer; font-size: 0.85rem; color: var(--text-muted);">
+                                    <input type="checkbox" id="team-mode-chk" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--neon-cyan);">
+                                    <span>Enable Team Play (Custom-assign teammate alliances)</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="setup-actions-container" style="display: flex; flex-direction: column; align-items: center; gap: 15px; width: 100%; margin-top: 20px;">
+                        <button id="start-game-btn" class="action-btn-large pulse-glow-btn" style="max-width: 100%;">
+                            <span>Engage Match</span> <i class="fa-solid fa-play"></i>
+                        </button>
+                        
+                        <button id="toggle-rules-btn" class="text-link-btn">
+                            <i class="fa-solid fa-circle-info"></i> How to Play
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== GAMEPLAY SCREEN ==================== -->
+        <section id="game-screen" class="glass-panel">
+            <header class="game-header">
+                <div class="header-logo">
+                    <i class="fa-solid fa-shapes"></i>
+                    <h2>SQUARE<span>S</span></h2>
+                </div>
+                
+                <!-- Active Turn Display -->
+                <div class="turn-announcer glass-panel-inner">
+                    <div class="turn-indicator"></div>
+                    <span id="turn-text">Cyber Blue's Turn</span>
+                </div>
+                
+                <!-- Utility buttons -->
+                <div class="header-actions">
+                    <button id="mute-btn" class="header-btn" title="Toggle Sounds">
+                        <i id="mute-icon" class="fa-solid fa-volume-high"></i>
+                    </button>
+                    <button id="help-btn" class="header-btn" title="Show Rules">
+                        <i class="fa-solid fa-circle-question"></i>
+                    </button>
+                </div>
+            </header>
+            
+            <div class="game-layout">
+                <!-- Left Sidebar: Scoreboard -->
+                <aside class="game-sidebar-left">
+                    <div class="sidebar-section scores-container" id="scoreboard-container">
+                        <!-- Scorecards are dynamically generated in JavaScript based on active player count -->
+                    </div>
+                </aside>
+                
+                <!-- Center: Interactive Game Grid Board -->
+                <main class="board-wrapper">
+                    <div class="board-inner-container glow-border">
+                        <!-- Canvas handles sub-pixel precision drawing, dynamic neon glow rendering, and hover animations -->
+                        <canvas id="game-canvas"></canvas>
+                        
+                        <!-- Floating Toast Notifications for Game Events (like auto-pass) -->
+                        <div class="toast-notification" id="toast-notif">
+                            <i class="fa-solid fa-info-circle"></i>
+                            <span id="toast-msg">No moves possible! Auto-passing turn...</span>
+                        </div>
+                    </div>
+                </main>
+
+                <!-- Right Sidebar: Dice & Placement Controls -->
+                <aside class="game-sidebar-right">
+                    <!-- Dice & Roll Section -->
+                    <div class="sidebar-section dice-container glass-panel-inner">
+                        <div class="dice-wrapper">
+                            <!-- Die 1 -->
+                            <div class="die" id="die-1">
+                                <div class="die-face face-1">
+                                    <span class="pip"></span>
+                                </div>
+                                <div class="die-face face-2">
+                                    <span class="pip"></span><span class="pip"></span>
+                                </div>
+                                <div class="die-face face-3">
+                                    <span class="pip"></span><span class="pip"></span><span class="pip"></span>
+                                </div>
+                                <div class="die-face face-4">
+                                    <div class="column"><span class="pip"></span><span class="pip"></span></div>
+                                    <div class="column"><span class="pip"></span><span class="pip"></span></div>
+                                </div>
+                                <div class="die-face face-5">
+                                    <div class="column"><span class="pip"></span><span class="pip"></span></div>
+                                    <div class="column center"><span class="pip"></span></div>
+                                    <div class="column"><span class="pip"></span><span class="pip"></span></div>
+                                </div>
+                                <div class="die-face face-6">
+                                    <div class="column"><span class="pip"></span><span class="pip"></span><span class="pip"></span></div>
+                                    <div class="column"><span class="pip"></span><span class="pip"></span><span class="pip"></span></div>
+                                </div>
+                            </div>
+                            <!-- Die 2 -->
+                            <div class="die" id="die-2">
+                                <div class="die-face face-1">
+                                    <span class="pip"></span>
+                                </div>
+                                <div class="die-face face-2">
+                                    <span class="pip"></span><span class="pip"></span>
+                                </div>
+                                <div class="die-face face-3">
+                                    <span class="pip"></span><span class="pip"></span><span class="pip"></span>
+                                </div>
+                                <div class="die-face face-4">
+                                    <div class="column"><span class="pip"></span><span class="pip"></span></div>
+                                    <div class="column"><span class="pip"></span><span class="pip"></span></div>
+                                </div>
+                                <div class="die-face face-5">
+                                    <div class="column"><span class="pip"></span><span class="pip"></span></div>
+                                    <div class="column center"><span class="pip"></span></div>
+                                    <div class="column"><span class="pip"></span><span class="pip"></span></div>
+                                </div>
+                                <div class="die-face face-6">
+                                    <div class="column"><span class="pip"></span><span class="pip"></span><span class="pip"></span></div>
+                                    <div class="column"><span class="pip"></span><span class="pip"></span><span class="pip"></span></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="roll-result-text" id="roll-result-text">
+                            Roll the dice to see your dimensions!
+                        </div>
+                        
+                        <button id="roll-btn" class="action-btn pulse-glow-btn">
+                            <i class="fa-solid fa-dice"></i> <span>Roll Dice</span>
+                        </button>
+                        <label class="toggle-switch-label" style="display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-size: 0.75rem; color: var(--text-muted); margin-top: 10px; margin-bottom: -5px; width: 100%;">
+                            <input type="checkbox" id="game-auto-roll-chk" style="cursor: pointer; width: 15px; height: 15px; accent-color: var(--p1-color);">
+                            <span>Auto-Roll</span>
+                        </label>
+                    </div>
+                    
+                    <!-- Placement Modifiers & Skip Controls -->
+                    <div class="sidebar-section placement-controls glass-panel-inner">
+                        <div class="control-row">
+                            <button id="rotate-btn" class="control-btn" disabled title="Rotate Block (Spacebar)">
+                                <i class="fa-solid fa-rotate"></i> <span>Rotate Shape</span>
+                            </button>
+                            <button id="pass-btn" class="control-btn" disabled title="Pass Turn">
+                                <i class="fa-solid fa-forward"></i> <span>Pass Turn</span>
+                            </button>
+                        </div>
+                        
+                        <!-- Mini indicator explaining next steps -->
+                        <div class="helper-bubble" id="helper-bubble">
+                            <i class="fa-solid fa-circle-exclamation"></i>
+                            <span id="helper-text">Roll the dice to begin your turn!</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Reset Game -->
+                    <button id="reset-btn" class="reset-link-btn">
+                        <i class="fa-solid fa-arrow-rotate-left"></i> Reset Match
+                    </button>
+                </aside>
+            </div>
+        </section>
+    </div>
+
+    <!-- ==================== RULES PANEL DRAWER ==================== -->
+    <div id="rules-drawer" class="drawer-overlay">
+        <div class="drawer-content glass-panel glow-border">
+            <button id="close-rules-btn" class="close-drawer-btn">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h2><i class="fa-solid fa-book-open"></i> Rules &amp; Strategy</h2>
+            
+            <div class="rules-scrollable">
+                <div class="rule-card">
+                    <div class="rule-num">01</div>
+                    <div class="rule-text">
+                        <h4>Objective</h4>
+                        <p>The goal is to capture the maximum territory (grid cells) on the board before the grid is completely filled or both players run out of valid moves.</p>
+                    </div>
+                </div>
+                
+                <div class="rule-card">
+                    <div class="rule-num">02</div>
+                    <div class="rule-text">
+                        <h4>Roll &amp; Dimensions</h4>
+                        <p>On your turn, roll the two dice. The values rolled represent the length and width of the rectangle you must draw on the grid (e.g. rolling 3 and 5 means a 3x5 or 5x3 rectangle).</p>
+                    </div>
+                </div>
+                
+                <div class="rule-card">
+                    <div class="rule-num">03</div>
+                    <div class="rule-text">
+                        <h4>First Placement</h4>
+                        <p>Your very first placement must start exactly at your designated corner. <strong class="p1-hl">Player 1</strong> starts in the **top-left** corner. <strong class="p2-hl">Player 2</strong> starts in the **bottom-right** corner.</p>
+                    </div>
+                </div>
+                
+                <div class="rule-card">
+                    <div class="rule-num">04</div>
+                    <div class="rule-text">
+                        <h4>Adjacency Rules (Strict Edges)</h4>
+                        <p>Every subsequent rectangle must touch at least one cell on the <strong>flat side/edge</strong> (not diagonal corners) of your already captured rectangles. It cannot overlap with any placed cells.</p>
+                    </div>
+                </div>
+                
+                <div class="rule-card">
+                    <div class="rule-num">05</div>
+                    <div class="rule-text">
+                        <h4>Controls</h4>
+                        <p>Use the <i class="fa-solid fa-rotate"></i> <strong>Rotate</strong> button (or press the <strong>Spacebar</strong>) to toggle the orientation of your rectangle before placing. Hover over the grid to preview the block and click to secure it.</p>
+                    </div>
+                </div>
+
+                <div class="rule-card">
+                    <div class="rule-num">06</div>
+                    <div class="rule-text">
+                        <h4>Auto-Pass &amp; Victory</h4>
+                        <p>If there is <strong>absolutely zero space</strong> on the board to fit your rolled dimensions under the strict rules, the match engine will automatically detect it, alert you, and pass your turn. The match ends when both players are forced to pass consecutively. The player with the largest captured area wins!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== VICTORY OVERLAY SCREEN ==================== -->
+    <div id="victory-overlay" class="victory-overlay">
+        <!-- Confetti Canvas -->
+        <canvas id="victory-confetti-canvas"></canvas>
+        
+        <div class="victory-card glass-panel glow-border scale-up-anim">
+            <div class="crown-icon">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+            <h1 id="victory-title">MATCH SECURED!</h1>
+            <p class="winner-subtitle" id="victory-winner-subtitle">Cyber Blue has dominated the board!</p>
+            
+            <div class="victory-stats">
+                <div class="v-stat-card glass-panel-inner">
+                    <span class="v-stat-label">Winner's Territory</span>
+                    <span class="v-stat-value" id="v-stat-winner-score">0</span>
+                    <span class="v-stat-sub" id="v-stat-winner-pct">0% of grid</span>
+                </div>
+                <div class="v-stat-card glass-panel-inner">
+                    <span class="v-stat-label">Runner-Up Territory</span>
+                    <span class="v-stat-value" id="v-stat-loser-score">0</span>
+                    <span class="v-stat-sub" id="v-stat-loser-pct">0% of grid</span>
+                </div>
+            </div>
+
+            <div class="victory-meta-info" id="victory-meta-info">
+                Match concluded in 24 rounds. 83% of the grid was claimed.
+            </div>
+            
+            <button id="rematch-btn" class="action-btn-large pulse-glow-btn">
+                <span>Engage Rematch</span> <i class="fa-solid fa-rotate-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== DOUBLES SPECIAL MODAL ==================== -->
+    <div id="doubles-modal" class="victory-overlay" style="z-index: 180;">
+        <div class="victory-card glass-panel glow-border scale-up-anim" style="max-width: 480px; padding: 40px 30px;">
+            <div class="crown-icon" style="color: var(--neon-cyan); text-shadow: 0 0 15px var(--p1-glow);" id="doubles-icon">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </div>
+            <h2 id="doubles-title" style="font-family: var(--font-heading); font-size: 2rem; font-weight: 800; color: var(--text-primary); margin-bottom: 5px;">DOUBLES RULE</h2>
+            <p class="winner-subtitle" id="doubles-subtitle" style="font-size: 0.95rem; margin-top: -5px; line-height: 1.45;">Choose how to deploy your rolled doubles.</p>
+            
+            <div class="doubles-options" id="doubles-options-container" style="display: flex; flex-direction: column; gap: 15px; width: 100%; margin-top: 10px;">
+                <!-- Buttons will be dynamically generated by JS depending on 4x4 or 5x5 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== DYNAMIC DRAWING CONTROL BAR ==================== -->
+    <div id="draw-controls-bar" class="toast-notification" style="top: 25px; bottom: auto; transform: translateX(-50%) translateY(-20px); z-index: 95; padding: 10px 20px;">
+        <i class="fa-solid fa-paintbrush" style="color: var(--p1-color);" id="draw-icon"></i>
+        <span id="draw-status-text" style="margin-right: 15px;">Draw custom shape: 36 cells left</span>
+        <button id="draw-confirm-btn" class="control-btn" disabled style="padding: 6px 12px; font-size: 0.8rem; border-color: var(--p1-color); color: var(--p1-color);">
+            <i class="fa-solid fa-check"></i> Confirm
+        </button>
+        <button id="draw-reset-btn" class="control-btn" style="padding: 6px 12px; font-size: 0.8rem; border-color: var(--text-dim); color: var(--text-muted); margin-left: 8px;">
+            <i class="fa-solid fa-arrow-rotate-left"></i> Reset
+        </button>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
