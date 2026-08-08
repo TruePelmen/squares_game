@@ -590,6 +590,46 @@
         </button>
     </div>
 
-    <script src="app.js"></script>
+    <!-- ==================== JOIN ROOM MODAL ==================== -->
+    <div id="join-modal" class="victory-overlay" style="z-index: 200;">
+        <div class="victory-card glass-panel glow-border scale-up-anim" style="max-width: 420px; padding: 35px 25px;">
+            <div class="crown-icon" style="color: var(--neon-cyan);">
+                <i class="fa-solid fa-key"></i>
+            </div>
+            <h2>JOIN ROOM</h2>
+            <p class="winner-subtitle">Enter the 6-character room code from your host.</p>
+            
+            <div class="input-group" style="width: 100%; margin: 20px 0;">
+                <input type="text" id="room-code-input" placeholder="e.g. XF4G8A" maxlength="6" style="text-transform: uppercase; font-size: 1.5rem; text-align: center; letter-spacing: 4px; font-weight: 800;">
+            </div>
+
+            <div style="display: flex; gap: 10px; width: 100%;">
+                <button id="join-cancel-btn" class="control-btn" style="flex: 1; padding: 12px;">Cancel</button>
+                <button id="join-confirm-btn" class="action-btn-large" style="flex: 1; padding: 12px; font-size: 0.95rem;">Join Game</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== ROOM LOBBY MODAL ==================== -->
+    <div id="lobby-modal" class="victory-overlay" style="z-index: 190;">
+        <div class="victory-card glass-panel glow-border scale-up-anim" style="max-width: 500px; padding: 35px 25px;">
+            <div class="crown-icon" style="color: var(--neon-emerald);">
+                <i class="fa-solid fa-users-viewfinder"></i>
+            </div>
+            <h2>ONLINE LOBBY</h2>
+            <p class="winner-subtitle">Room Code: <strong id="lobby-room-code" style="color: var(--neon-cyan); font-size: 1.3rem; letter-spacing: 2px;">------</strong></p>
+            
+            <div id="lobby-players-list" style="display: flex; flex-direction: column; gap: 10px; width: 100%; margin: 20px 0;">
+                <!-- Dynamically populated players list -->
+            </div>
+
+            <div style="display: flex; gap: 10px; width: 100%;">
+                <button id="lobby-leave-btn" class="control-btn" style="flex: 1; padding: 12px; border-color: var(--neon-pink); color: var(--neon-pink);">Leave Room</button>
+                <button id="lobby-start-btn" class="action-btn-large pulse-glow-btn" style="flex: 2; padding: 12px; font-size: 0.95rem;">Start Match</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/src/app.js"></script>
 </body>
 </html>
