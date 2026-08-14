@@ -78,6 +78,7 @@ export function getDOMElements() {
         lobbyPlayersList: document.getElementById("lobby-players-list"),
         lobbyStartBtn: document.getElementById("lobby-start-btn"),
         lobbyLeaveBtn: document.getElementById("lobby-leave-btn"),
+        shareLinkBtn: document.getElementById("share-link-btn"),
         
         joinModal: document.getElementById("join-modal"),
         roomCodeInput: document.getElementById("room-code-input"),

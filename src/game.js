@@ -310,3 +310,194 @@ export function tallyScores(state) {
     
     return { counts, total };
 }
+
+export function isDraftContiguous(draftCells) {
+    if (!draftCells || draftCells.length <= 1) return true;
+    
+    const visited = new Set();
+    const queue = [draftCells[0]];
+    visited.add(`${draftCells[0].r},${draftCells[0].c}`);
+    
+    while (queue.length > 0) {
+        const current = queue.shift();
+        
+        for (const pos of draftCells) {
+            const key = `${pos.r},${pos.c}`;
+            if (visited.has(key)) continue;
+            
+            if ((Math.abs(pos.r - current.r) === 1 && pos.c === current.c) ||
+                (Math.abs(pos.c - current.c) === 1 && pos.r === current.r)) {
+                visited.add(key);
+                queue.push(pos);
+            }
+        }
+    }
+    
+    return visited.size === draftCells.length;
+}
+
+export function validateFinalDraft(state, draftCells, moveType, player) {
+    if (!draftCells || draftCells.length === 0) {
+        return { valid: false, reason: "No cells selected!" };
+    }
+    
+    if (!isDraftContiguous(draftCells)) {
+        return { valid: false, reason: "Shape must be contiguous (connected)!" };
+    }
+    
+    if (moveType === 'custom36-drawing') {
+        const pId = Number(player);
+        let playerCellsCount = 0;
+        for (let i = 0; i < state.gridSize; i++) {
+            for (let j = 0; j < state.gridSize; j++) {
+                if (state.board[i]?.[j] === pId) playerCellsCount++;
+            }
+        }
+        const isFirstTurn = playerCellsCount === 0;
+
+        if (isFirstTurn) {
+            const start = getStartingCorner(state.gridSize, pId);
+            const hasCorner = draftCells.some(pos => pos.r === start.r && pos.c === start.c);
+            if (!hasCorner) {
+                return { valid: false, reason: `Your shape must start exactly at your starting corner (${start.c + 1}, ${start.r + 1})!` };
+            }
+        } else {
+            let touchesTerritory = false;
+            for (const pos of draftCells) {
+                const r = pos.r;
+                const c = pos.c;
+                if ((r > 0 && state.board[r - 1]?.[c] === pId) ||
+                    (r < state.gridSize - 1 && state.board[r + 1]?.[c] === pId) ||
+                    (c > 0 && state.board[r]?.[c - 1] === pId) ||
+                    (c < state.gridSize - 1 && state.board[r]?.[c + 1] === pId)) {
+                    touchesTerritory = true;
+                    break;
+                }
+            }
+            if (!touchesTerritory) {
+                return { valid: false, reason: "Shape must touch your existing territory!" };
+            }
+        }
+    }
+    
+    return { valid: true };
+}
+
+export function countMaxConnectedEmptyCells(state, startPositions) {
+    if (!startPositions || startPositions.length === 0) return 0;
+    
+    let maxCount = 0;
+    for (const startPos of startPositions) {
+        if (!state.board[startPos.r] || state.board[startPos.r][startPos.c] !== 0) continue;
+        
+        const visited = new Set();
+        const queue = [startPos];
+        visited.add(`${startPos.r},${startPos.c}`);
+        
+        let count = 0;
+        while (queue.length > 0) {
+            const current = queue.shift();
+            count++;
+            
+            const neighbors = [
+                { r: current.r - 1, c: current.c },
+                { r: current.r + 1, c: current.c },
+                { r: current.r, c: current.c - 1 },
+                { r: current.r, c: current.c + 1 }
+            ];
+            
+            for (const n of neighbors) {
+                if (n.r >= 0 && n.r < state.gridSize && n.c >= 0 && n.c < state.gridSize) {
+                    if (state.board[n.r]?.[n.c] === 0) {
+                        const key = `${n.r},${n.c}`;
+                        if (!visited.has(key)) {
+                            visited.add(key);
+                            queue.push(n);
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (count > maxCount) {
+            maxCount = count;
+        }
+    }
+    
+    return maxCount;
+}
+
+export function hasAnyDrawingMoves(state, moveType, requiredCount, player) {
+    if (moveType === 'wall-drawing') {
+        const visited = new Set();
+        for (let r = 0; r < state.gridSize; r++) {
+            for (let c = 0; c < state.gridSize; c++) {
+                if (state.board[r]?.[c] === 0 && !visited.has(`${r},${c}`)) {
+                    let count = 0;
+                    const queue = [{ r, c }];
+                    visited.add(`${r},${c}`);
+                    
+                    while (queue.length > 0) {
+                        const current = queue.shift();
+                        count++;
+                        if (count >= requiredCount) return true;
+                        
+                        const neighbors = [
+                            { r: current.r - 1, c: current.c },
+                            { r: current.r + 1, c: current.c },
+                            { r: current.r, c: current.c - 1 },
+                            { r: current.r, c: current.c + 1 }
+                        ];
+                        
+                        for (const n of neighbors) {
+                            if (n.r >= 0 && n.r < state.gridSize && n.c >= 0 && n.c < state.gridSize) {
+                                if (state.board[n.r]?.[n.c] === 0 && !visited.has(`${n.r},${n.c}`)) {
+                                    visited.add(`${n.r},${n.c}`);
+                                    queue.push(n);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    
+    if (moveType === 'custom36-drawing') {
+        const pId = Number(player);
+        let playerCellsCount = 0;
+        for (let i = 0; i < state.gridSize; i++) {
+            for (let j = 0; j < state.gridSize; j++) {
+                if (state.board[i]?.[j] === pId) playerCellsCount++;
+            }
+        }
+        
+        const startPositions = [];
+        if (playerCellsCount === 0) {
+            const start = getStartingCorner(state.gridSize, pId);
+            startPositions.push({ r: start.r, c: start.c });
+        } else {
+            for (let r = 0; r < state.gridSize; r++) {
+                for (let c = 0; c < state.gridSize; c++) {
+                    if (state.board[r]?.[c] === 0) {
+                        let adjacent = false;
+                        if (r > 0 && state.board[r - 1]?.[c] === pId) adjacent = true;
+                        if (r < state.gridSize - 1 && state.board[r + 1]?.[c] === pId) adjacent = true;
+                        if (c > 0 && state.board[r]?.[c - 1] === pId) adjacent = true;
+                        if (c < state.gridSize - 1 && state.board[r]?.[c + 1] === pId) adjacent = true;
+                        
+                        if (adjacent) {
+                            startPositions.push({ r, c });
+                        }
+                    }
+                }
+            }
+        }
+        
+        const reachableCount = countMaxConnectedEmptyCells(state, startPositions);
+        return reachableCount >= requiredCount;
+    }
+    
+    return false;
+}

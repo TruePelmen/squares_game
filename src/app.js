@@ -4,7 +4,7 @@
  */
 
 import { initAudio, synthSound, playRollTick, playPlaceBlockSound, playHoverTick, playErrorTone, playWallSound, playBreachSound, playVictoryFanfare, toggleMuted } from './audio.js';
-import { createInitialState, resetBoardMatrix, isValidPlacement, hasAnyValidMoves, tallyScores, getPlayerTeam, getStartingCorner } from './game.js';
+import { createInitialState, resetBoardMatrix, isValidPlacement, hasAnyValidMoves, tallyScores, getPlayerTeam, getStartingCorner, isDraftContiguous, validateFinalDraft, hasAnyDrawingMoves } from './game.js';
 import { resizeCanvas, drawBoard, startConfettiEffect, stopConfettiEffect } from './canvas.js';
 import { getDOMElements, showToast, buildScoreboardUI, updateThemeStyles, showDoublesModal, updateHelperBubble } from './ui.js';
 import { supabase, getCurrentUser, signInWithGoogle, createOnlineRoom, joinOnlineRoomByCode, fetchRoomDetails, updateOnlineGameState, updateRoomStatus, subscribeToRoom, sendBroadcastHover, trackPresence, unsubscribeFromRoom } from './db.js';
@@ -21,11 +21,23 @@ function init() {
     setupColorSelectors();
     setupTeamSelectors();
     checkCurrentUser();
+    checkUrlRoomCode();
     
     resetBoardMatrix(state);
     resizeCanvas(DOM.canvas, state);
     
     requestAnimationFrame(canvasLoop);
+}
+
+function checkUrlRoomCode() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomCode = urlParams.get('room');
+    if (roomCode) {
+        DOM.modeOnlineBtn?.click();
+        if (DOM.roomCodeInput) DOM.roomCodeInput.value = roomCode.toUpperCase();
+        DOM.joinModal?.classList.add("active");
+        showToast(DOM, `Invite link detected! Click Join to enter room ${roomCode.toUpperCase()}`);
+    }
 }
 
 async function checkCurrentUser() {
@@ -79,36 +91,60 @@ function setupTeamSelectors() {
     }
 }
 
-function switchPlayer(nextPlayer) {
+function switchPlayer(nextPlayer, preserveRollState = false) {
     state.activePlayer = nextPlayer;
-    state.hasRolled = false;
-    state.isRotated = false;
+    if (!preserveRollState) {
+        state.hasRolled = false;
+        state.isRotated = false;
+        state.currentRoll = [0, 0];
+        state.activeSpecialMove = null;
+        state.customCellsToPlace = 0;
+        state.customCellsPlaced = [];
+        state.isDrawingDrag = false;
+        state.isErasingDrag = false;
+    }
     
     if (DOM.gameAutoRollChk) {
         DOM.gameAutoRollChk.checked = state.autoRoll;
     }
     
-    state.activeSpecialMove = null;
-    state.customCellsToPlace = 0;
-    state.customCellsPlaced = [];
-    state.isDrawingDrag = false;
-    state.isErasingDrag = false;
-    
-    // In Online mode, disable controls if it's not local player's turn
+    // In Online mode, determine if current player controls this turn
     const isMyTurn = !state.isOnline || (state.activePlayer === state.localPlayerIndex);
-    
-    DOM.rollBtn.disabled = !isMyTurn;
-    DOM.rotateBtn.disabled = true;
-    DOM.passBtn.disabled = true;
-    DOM.rotateBtn.classList.remove("active-ready");
-    DOM.passBtn.classList.remove("active-ready");
-    
     const activeName = state.playerNames[state.activePlayer] || `Player ${state.activePlayer}`;
-    DOM.turnText.textContent = isMyTurn ? "Your Turn!" : `${activeName}'s Turn`;
-    DOM.rollResultText.textContent = isMyTurn ? "Roll the dice to see your dimensions!" : `Waiting for ${activeName} to roll...`;
+    
+    if (!state.hasRolled) {
+        DOM.rollBtn.disabled = !isMyTurn;
+        DOM.rotateBtn.disabled = true;
+        DOM.passBtn.disabled = true;
+        DOM.rotateBtn.classList.remove("active-ready");
+        DOM.passBtn.classList.remove("active-ready");
+        
+        DOM.turnText.textContent = isMyTurn ? "Your Turn!" : `${activeName}'s Turn`;
+        DOM.rollResultText.textContent = isMyTurn ? "Roll the dice to see your dimensions!" : `Waiting for ${activeName} to roll...`;
+    } else {
+        DOM.rollBtn.disabled = true;
+        DOM.rotateBtn.disabled = !isMyTurn;
+        DOM.passBtn.disabled = !isMyTurn;
+        if (isMyTurn) {
+            DOM.rotateBtn.classList.add("active-ready");
+            DOM.passBtn.classList.add("active-ready");
+            DOM.turnText.textContent = "Your Turn!";
+            DOM.rollResultText.innerHTML = `You rolled a <strong>${state.currentRoll[0]} x ${state.currentRoll[1]}</strong> block!`;
+        } else {
+            DOM.rotateBtn.classList.remove("active-ready");
+            DOM.passBtn.classList.remove("active-ready");
+            DOM.turnText.textContent = `${activeName}'s Turn`;
+            DOM.rollResultText.innerHTML = `<strong>${activeName}</strong> rolled a <strong>${state.currentRoll[0]} x ${state.currentRoll[1]}</strong> block!`;
+        }
+        
+        if (state.currentRoll[0] > 0 && state.currentRoll[1] > 0) {
+            alignDie(DOM.die1, state.currentRoll[0]);
+            alignDie(DOM.die2, state.currentRoll[1]);
+        }
+    }
     
     if (DOM.doublesModal) DOM.doublesModal.classList.remove("active");
-    if (DOM.drawControlsBar) DOM.drawControlsBar.classList.remove("active");
+    if (DOM.drawControlsBar && !state.activeSpecialMove) DOM.drawControlsBar.classList.remove("active");
     
     document.body.className = `player-active-p${state.activePlayer}`;
     
@@ -125,17 +161,19 @@ function switchPlayer(nextPlayer) {
         document.documentElement.style.setProperty("--p2-glow", nextTheme.glow);
     }
     
-    for (let i = 1; i <= state.playersCount; i++) {
-        const els = state.scoreCardElements[i];
-        if (els) {
-            if (i === state.activePlayer) {
-                els.card.classList.add("active-turn");
-                els.card.style.borderColor = activeTheme ? activeTheme.hex : "#00f0ff";
-                els.card.style.boxShadow = `0 0 15px ${activeTheme ? activeTheme.glow : "rgba(0,240,255,0.45)"}`;
-            } else {
-                els.card.classList.remove("active-turn");
-                els.card.style.borderColor = "var(--border-glass)";
-                els.card.style.boxShadow = "none";
+    if (state.scoreCardElements) {
+        for (let i = 1; i <= state.playersCount; i++) {
+            const els = state.scoreCardElements[i];
+            if (els) {
+                if (i === state.activePlayer) {
+                    els.card.classList.add("active-turn");
+                    els.card.style.borderColor = activeTheme ? activeTheme.hex : "#00f0ff";
+                    els.card.style.boxShadow = `0 0 15px ${activeTheme ? activeTheme.glow : "rgba(0,240,255,0.45)"}`;
+                } else {
+                    els.card.classList.remove("active-turn");
+                    els.card.style.borderColor = "var(--border-glass)";
+                    els.card.style.boxShadow = "none";
+                }
             }
         }
     }
@@ -214,7 +252,7 @@ function triggerDiceRoll() {
         alignDie(DOM.die1, d1Val);
         alignDie(DOM.die2, d2Val);
         
-        const activeMult = state.doubleSizeMultiplier[state.activePlayer];
+        const activeMult = state.doubleSizeMultiplier[state.activePlayer] || 1;
         let multiplierAppliedText = "";
         
         if (activeMult === 2) {
@@ -231,13 +269,13 @@ function triggerDiceRoll() {
         
         state.currentRoll = [d1Val, d2Val];
         state.hasRolled = true;
-        state.rollsCount[state.activePlayer]++;
+        state.rollsCount[state.activePlayer] = (state.rollsCount[state.activePlayer] || 0) + 1;
         
         let activePlayerNum = Number(state.activePlayer);
         let playerCellsCount = 0;
         for (let i = 0; i < state.gridSize; i++) {
             for (let j = 0; j < state.gridSize; j++) {
-                if (state.board[i][j] === activePlayerNum) playerCellsCount++;
+                if (state.board[i]?.[j] === activePlayerNum) playerCellsCount++;
             }
         }
         if (playerCellsCount === 0 && d1Val === 1 && d2Val === 1) {
@@ -269,6 +307,7 @@ function triggerDiceRoll() {
 }
 
 function alignDie(element, val) {
+    if (!element) return;
     let rx = 0, ry = 0;
     switch (val) {
         case 1: rx = 0; ry = 0; break;
@@ -400,6 +439,194 @@ function selectWallDrawingMove() {
     showToast(DOM, "Select 4 connected grid cells to place a Wall!");
 }
 
+// Drawing Mode Handlers
+function handleDrawModeCellClick(r, c) {
+    if (r < 0 || r >= state.gridSize || c < 0 || c >= state.gridSize) return;
+    
+    if (state.board[r][c] !== 0) {
+        playErrorTone();
+        showToast(DOM, "Must select an empty cell!");
+        return;
+    }
+    
+    const idx = state.customCellsPlaced.findIndex(pos => pos.r === r && pos.c === c);
+    if (idx !== -1) {
+        if (idx === state.customCellsPlaced.length - 1) {
+            state.customCellsPlaced.pop();
+            state.customCellsToPlace++;
+            playHoverTick();
+            updateDrawBarUI();
+        } else {
+            playErrorTone();
+            showToast(DOM, "Can only undo last selected cell!");
+        }
+        return;
+    }
+    
+    if (state.customCellsToPlace === 0) {
+        playErrorTone();
+        return;
+    }
+    
+    if (state.activeSpecialMove === 'wall-drawing') {
+        if (state.customCellsPlaced.length > 0) {
+            let adjacent = false;
+            for (const pos of state.customCellsPlaced) {
+                if ((Math.abs(pos.r - r) === 1 && pos.c === c) || 
+                    (Math.abs(pos.c - c) === 1 && pos.r === r)) {
+                    adjacent = true;
+                    break;
+                }
+            }
+            if (!adjacent) {
+                playErrorTone();
+                showToast(DOM, "Wall cells must be connected contiguously!");
+                return;
+            }
+        }
+    } else if (state.activeSpecialMove === 'custom36-drawing') {
+        const player = Number(state.activePlayer);
+        let playerCellsCount = 0;
+        for (let i = 0; i < state.gridSize; i++) {
+            for (let j = 0; j < state.gridSize; j++) {
+                if (state.board[i]?.[j] === player) playerCellsCount++;
+            }
+        }
+        const isFirstTurn = playerCellsCount === 0;
+
+        if (state.customCellsPlaced.length === 0) {
+            if (isFirstTurn) {
+                const start = getStartingCorner(state.gridSize, player);
+                if (r !== start.r || c !== start.c) {
+                    playErrorTone();
+                    showToast(DOM, `First cell must start exactly in your corner (${start.c + 1}, ${start.r + 1})!`);
+                    return;
+                }
+            } else {
+                let touch = false;
+                if ((r > 0 && state.board[r - 1]?.[c] === player) ||
+                    (r < state.gridSize - 1 && state.board[r + 1]?.[c] === player) ||
+                    (c > 0 && state.board[r]?.[c - 1] === player) ||
+                    (c < state.gridSize - 1 && state.board[r]?.[c + 1] === player)) {
+                    touch = true;
+                }
+                if (!touch) {
+                    playErrorTone();
+                    showToast(DOM, "First cell must touch your existing territory!");
+                    return;
+                }
+            }
+        } else {
+            let adjacent = false;
+            for (const pos of state.customCellsPlaced) {
+                if ((Math.abs(pos.r - r) === 1 && pos.c === c) || 
+                    (Math.abs(pos.c - c) === 1 && pos.r === r)) {
+                    adjacent = true;
+                    break;
+                }
+            }
+            if (!adjacent) {
+                playErrorTone();
+                showToast(DOM, "Cells must connect contiguous shape!");
+                return;
+            }
+        }
+    }
+    
+    state.customCellsPlaced.push({ r, c });
+    state.customCellsToPlace--;
+    playHoverTick();
+    updateDrawBarUI();
+}
+
+function handleDrawModeCellRemove(r, c) {
+    const idx = state.customCellsPlaced.findIndex(pos => pos.r === r && pos.c === c);
+    if (idx !== -1) {
+        state.customCellsPlaced.splice(idx, 1);
+        state.customCellsToPlace++;
+        playHoverTick();
+        updateDrawBarUI();
+        return true;
+    }
+    return false;
+}
+
+function updateDrawBarUI() {
+    if (!DOM.drawControlsBar) return;
+    const theme = state.colors[state.playerColors[state.activePlayer]];
+    
+    if (state.activeSpecialMove === 'wall-drawing') {
+        DOM.drawStatusText.textContent = `Draw custom wall: ${state.customCellsToPlace} cells left`;
+    } else {
+        DOM.drawStatusText.textContent = `Draw custom shape: ${state.customCellsToPlace} cells left`;
+    }
+    
+    if (state.customCellsToPlace === 0) {
+        DOM.drawConfirmBtn.disabled = false;
+        if (theme) {
+            DOM.drawConfirmBtn.style.borderColor = theme.hex;
+            DOM.drawConfirmBtn.style.color = theme.hex;
+        }
+    } else {
+        DOM.drawConfirmBtn.disabled = true;
+        DOM.drawConfirmBtn.style.borderColor = "var(--text-dim)";
+        DOM.drawConfirmBtn.style.color = "var(--text-muted)";
+    }
+    
+    updateHelperBubble(DOM, state);
+}
+
+function confirmDrawShape() {
+    if (state.customCellsToPlace !== 0) return;
+    if (state.isOnline && state.activePlayer !== state.localPlayerIndex) return;
+    
+    const check = validateFinalDraft(state, state.customCellsPlaced, state.activeSpecialMove, state.activePlayer);
+    if (!check.valid) {
+        showToast(DOM, check.reason);
+        playErrorTone();
+        return;
+    }
+    
+    if (state.activeSpecialMove === 'wall-drawing') {
+        state.customCellsPlaced.forEach(pos => {
+            state.board[pos.r][pos.c] = 7;
+        });
+        playWallSound();
+        showToast(DOM, "Carbon Wall secure!");
+    } else if (state.activeSpecialMove === 'custom36-drawing') {
+        state.customCellsPlaced.forEach(pos => {
+            state.board[pos.r][pos.c] = state.activePlayer;
+        });
+        playPlaceBlockSound();
+        showToast(DOM, "Custom territory secured!");
+    }
+    
+    state.consecutiveSkippedTurns[state.activePlayer] = 0;
+    const { counts } = tallyScores(state);
+    updateScoreboardValues(counts);
+    state.consecutivePasses = 0;
+    
+    if (DOM.drawControlsBar) DOM.drawControlsBar.classList.remove("active");
+    
+    const next = (state.activePlayer % state.playersCount) + 1;
+    switchPlayer(next, false);
+    
+    if (state.isOnline && state.roomId) {
+        syncGameStateToSupabase();
+    }
+}
+
+function resetDrawShape() {
+    if (state.activeSpecialMove === 'wall-drawing') {
+        state.customCellsToPlace = 4;
+    } else {
+        state.customCellsToPlace = 36;
+    }
+    state.customCellsPlaced = [];
+    playHoverTick();
+    updateDrawBarUI();
+}
+
 function triggerAutoPassSequence() {
     DOM.rotateBtn.disabled = true;
     DOM.rotateBtn.classList.remove("active-ready");
@@ -411,7 +638,7 @@ function triggerAutoPassSequence() {
     DOM.helperText.innerHTML = `<span style="color: var(--neon-pink);">There are no legal spots to fit this block. Your turn is passed.</span>`;
     
     setTimeout(() => {
-        if (state.hasRolled) {
+        if (state.hasRolled && (!state.isOnline || state.activePlayer === state.localPlayerIndex)) {
             passTurn();
         }
     }, 2800);
@@ -419,18 +646,22 @@ function triggerAutoPassSequence() {
 
 function passTurn() {
     if (!state.hasRolled) return;
+    if (state.isOnline && state.activePlayer !== state.localPlayerIndex) return;
     
     state.consecutivePasses++;
-    state.consecutiveSkippedTurns[state.activePlayer]++;
+    state.consecutiveSkippedTurns[state.activePlayer] = (state.consecutiveSkippedTurns[state.activePlayer] || 0) + 1;
     
     const { counts } = tallyScores(state);
     updateScoreboardValues(counts);
     
     if (state.consecutivePasses >= state.playersCount) {
         endMatch();
+        if (state.isOnline && state.roomId) {
+            syncGameStateToSupabase();
+        }
     } else {
         const next = (state.activePlayer % state.playersCount) + 1;
-        switchPlayer(next);
+        switchPlayer(next, false);
         if (state.isOnline && state.roomId) {
             syncGameStateToSupabase();
         }
@@ -456,11 +687,6 @@ function endMatch() {
     playVictoryFanfare();
     
     const { counts, total } = tallyScores(state);
-    let totalClaimed = 0;
-    for (let i = 1; i <= state.playersCount; i++) {
-        totalClaimed += counts[i] || 0;
-    }
-    
     const playerScores = [];
     for (let i = 1; i <= state.playersCount; i++) {
         playerScores.push({
@@ -499,10 +725,7 @@ function canvasLoop() {
 }
 
 function handleMouseMove(e) {
-    if (state.isOnline && state.activePlayer !== state.localPlayerIndex) return;
-    
-    const isDrawingMode = state.activeSpecialMove === 'wall-drawing' || state.activeSpecialMove === 'custom36-drawing';
-    if ((!state.hasRolled && !isDrawingMode) || state.isGameOver) return;
+    if (state.isGameOver) return;
     
     const rect = DOM.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -510,6 +733,24 @@ function handleMouseMove(e) {
     
     const cellX = Math.floor(x / (rect.width / state.gridSize));
     const cellY = Math.floor(y / (rect.height / state.gridSize));
+    
+    const isDrawingMode = state.activeSpecialMove === 'wall-drawing' || state.activeSpecialMove === 'custom36-drawing';
+    const isMyTurn = !state.isOnline || (state.activePlayer === state.localPlayerIndex);
+    
+    if (isDrawingMode) {
+        if (!isMyTurn) return;
+        if (state.isDrawingDrag) {
+            handleDrawModeCellClick(cellY, cellX);
+        } else if (state.isErasingDrag) {
+            handleDrawModeCellRemove(cellY, cellX);
+        }
+        hoverState.row = cellY;
+        hoverState.col = cellX;
+        hoverState.isValid = (cellY >= 0 && cellY < state.gridSize && cellX >= 0 && cellX < state.gridSize && state.board[cellY]?.[cellX] === 0);
+        return;
+    }
+    
+    if (!state.hasRolled || !isMyTurn) return;
     
     let blockW = state.currentRoll[0];
     let blockH = state.currentRoll[1];
@@ -552,8 +793,18 @@ function handleMouseLeave() {
 
 function handleGridClick() {
     if (state.isOnline && state.activePlayer !== state.localPlayerIndex) return;
-    if (hoverState.row === -1 || hoverState.col === -1 || state.isGameOver) return;
+    if (state.isGameOver) return;
+    
+    const isDrawingMode = state.activeSpecialMove === 'wall-drawing' || state.activeSpecialMove === 'custom36-drawing';
+    if (isDrawingMode) {
+        if (hoverState.row !== -1 && hoverState.col !== -1) {
+            handleDrawModeCellClick(hoverState.row, hoverState.col);
+        }
+        return;
+    }
+    
     if (!state.hasRolled) return;
+    if (hoverState.row === -1 || hoverState.col === -1) return;
     
     if (!hoverState.isValid) {
         playErrorTone();
@@ -591,7 +842,7 @@ function handleGridClick() {
     handleMouseLeave();
     
     const next = (state.activePlayer % state.playersCount) + 1;
-    switchPlayer(next);
+    switchPlayer(next, false);
     
     if (state.isOnline && state.roomId) {
         syncGameStateToSupabase();
@@ -629,7 +880,10 @@ async function syncGameStateToSupabase() {
         current_roll: state.currentRoll,
         has_rolled: state.hasRolled,
         consecutive_passes: state.consecutivePasses,
-        is_game_over: state.isGameOver
+        is_game_over: state.isGameOver,
+        active_special_move: state.activeSpecialMove,
+        double_size_multiplier: state.doubleSizeMultiplier,
+        consecutive_skipped_turns: state.consecutiveSkippedTurns
     });
 }
 
@@ -713,6 +967,7 @@ function openLobbyModal(code) {
     if (DOM.lobbyStartBtn) {
         if (state.isHost) {
             DOM.lobbyStartBtn.style.display = "block";
+            DOM.lobbyStartBtn.disabled = false;
             DOM.lobbyStartBtn.textContent = "Start Match";
         } else {
             DOM.lobbyStartBtn.style.display = "none";
@@ -725,20 +980,77 @@ function openLobbyModal(code) {
 function subscribeAndTrackRoom(roomId) {
     subscribeToRoom(roomId, {
         onGameStateUpdate: (newGameState) => {
-            state.board = newGameState.board || state.board;
-            state.activePlayer = newGameState.active_player;
-            state.currentRoll = newGameState.current_roll || [0, 0];
-            state.hasRolled = newGameState.has_rolled;
-            state.consecutivePasses = newGameState.consecutive_passes;
-            state.isGameOver = newGameState.is_game_over;
+            if (!newGameState) return;
             
-            if (state.hasRolled && state.currentRoll[0] > 0) {
-                alignDie(DOM.die1, state.currentRoll[0]);
-                alignDie(DOM.die2, state.currentRoll[1]);
-                DOM.rollResultText.innerHTML = `Player ${state.activePlayer} rolled a <strong>${state.currentRoll[0]} x ${state.currentRoll[1]}</strong> block!`;
+            const prevActivePlayer = state.activePlayer;
+            const prevHasRolled = state.hasRolled;
+            
+            if (newGameState.board && Array.isArray(newGameState.board) && newGameState.board.length === state.gridSize) {
+                state.board = newGameState.board;
             }
             
-            switchPlayer(state.activePlayer);
+            state.consecutivePasses = newGameState.consecutive_passes ?? state.consecutivePasses;
+            state.isGameOver = newGameState.is_game_over ?? state.isGameOver;
+            state.activeSpecialMove = newGameState.active_special_move || null;
+            if (newGameState.double_size_multiplier) {
+                state.doubleSizeMultiplier = newGameState.double_size_multiplier;
+            }
+            if (newGameState.consecutive_skipped_turns) {
+                state.consecutiveSkippedTurns = newGameState.consecutive_skipped_turns;
+            }
+            
+            const { counts } = tallyScores(state);
+            updateScoreboardValues(counts);
+            
+            if (state.isGameOver) {
+                endMatch();
+                return;
+            }
+            
+            // Case 1: Active player changed (turn handed over)
+            if (newGameState.active_player !== prevActivePlayer) {
+                state.activePlayer = newGameState.active_player;
+                state.currentRoll = newGameState.current_roll || [0, 0];
+                state.hasRolled = newGameState.has_rolled || false;
+                switchPlayer(newGameState.active_player, state.hasRolled);
+                playPlaceBlockSound();
+                return;
+            }
+            
+            // Case 2: Same active player, but new roll occurred
+            if (newGameState.has_rolled && !prevHasRolled) {
+                state.currentRoll = newGameState.current_roll || [0, 0];
+                state.hasRolled = true;
+                
+                alignDie(DOM.die1, state.currentRoll[0]);
+                alignDie(DOM.die2, state.currentRoll[1]);
+                
+                const isMyTurn = !state.isOnline || (state.activePlayer === state.localPlayerIndex);
+                const activeName = state.playerNames[state.activePlayer] || `Player ${state.activePlayer}`;
+                
+                if (isMyTurn) {
+                    DOM.rollBtn.disabled = true;
+                    DOM.rotateBtn.disabled = false;
+                    DOM.passBtn.disabled = false;
+                    DOM.rotateBtn.classList.add("active-ready");
+                    DOM.passBtn.classList.add("active-ready");
+                    DOM.turnText.textContent = "Your Turn!";
+                    DOM.rollResultText.innerHTML = `You rolled a <strong>${state.currentRoll[0]} x ${state.currentRoll[1]}</strong> block!`;
+                    updateHelperBubble(DOM, state);
+                    
+                    if (!hasAnyValidMoves(state, state.activePlayer, state.currentRoll)) {
+                        triggerAutoPassSequence();
+                    }
+                } else {
+                    DOM.rollBtn.disabled = true;
+                    DOM.rotateBtn.disabled = true;
+                    DOM.passBtn.disabled = true;
+                    DOM.rotateBtn.classList.remove("active-ready");
+                    DOM.passBtn.classList.remove("active-ready");
+                    DOM.turnText.textContent = `${activeName}'s Turn`;
+                    DOM.rollResultText.innerHTML = `<strong>${activeName}</strong> rolled a <strong>${state.currentRoll[0]} x ${state.currentRoll[1]}</strong> block! Placing block...`;
+                }
+            }
         },
         onPlayersUpdate: async () => {
             refreshLobbyPlayers(roomId);
@@ -777,10 +1089,13 @@ async function refreshLobbyPlayers(roomId) {
             state.playersCount = room.players_count;
             state.gridSize = room.grid_size;
             state.mapType = room.map_type;
+            state.enableAdvancedRules = room.enable_advanced_rules;
+            state.enableTeamMode = room.enable_team_mode;
             
             players.forEach(p => {
                 state.playerNames[p.player_index] = p.name;
                 state.playerColors[p.player_index] = p.color;
+                state.playerTeams[p.player_index] = p.team || p.player_index;
                 
                 const slot = document.createElement("div");
                 slot.className = `lobby-player-slot ${p.player_index === state.localPlayerIndex ? 'active-slot' : ''}`;
@@ -813,27 +1128,51 @@ function refreshLobbyPresence(presenceState) {
 }
 
 async function startOnlineGameSession(room) {
-    const { players, gameState } = await fetchRoomDetails(state.roomId);
-    
-    players.forEach(p => {
-        state.playerNames[p.player_index] = p.name;
-        state.playerColors[p.player_index] = p.color;
-    });
-    
-    state.board = gameState.board || state.board;
-    state.activePlayer = gameState.active_player || 1;
-    
-    buildScoreboardUI(DOM, state);
-    updateThemeStyles(state);
-    
-    DOM.setupScreen.classList.remove("active");
-    DOM.gameScreen.classList.add("active");
-    
-    switchPlayer(state.activePlayer);
-    resizeCanvas(DOM.canvas, state);
-    playPlaceBlockSound();
-    
-    showToast(DOM, `Match started! You are Player ${state.localPlayerIndex}.`);
+    try {
+        const { room: fetchedRoom, players, gameState } = await fetchRoomDetails(state.roomId);
+        const activeRoom = fetchedRoom || room;
+        
+        state.gridSize = activeRoom.grid_size || state.gridSize || 20;
+        state.mapType = activeRoom.map_type || state.mapType || "classic";
+        state.playersCount = activeRoom.players_count || players.length || 2;
+        state.enableAdvancedRules = !!activeRoom.enable_advanced_rules;
+        state.enableTeamMode = !!activeRoom.enable_team_mode;
+        
+        players.forEach(p => {
+            state.playerNames[p.player_index] = p.name;
+            state.playerColors[p.player_index] = p.color;
+            state.playerTeams[p.player_index] = p.team || p.player_index;
+        });
+        
+        // Ensure valid board matrix exists
+        if (Array.isArray(gameState.board) && gameState.board.length === state.gridSize && Array.isArray(gameState.board[0]) && gameState.board[0].length === state.gridSize) {
+            state.board = gameState.board;
+        } else {
+            resetBoardMatrix(state);
+        }
+        
+        state.activePlayer = gameState.active_player || 1;
+        state.currentRoll = gameState.current_roll || [0, 0];
+        state.hasRolled = gameState.has_rolled || false;
+        state.consecutivePasses = gameState.consecutive_passes || 0;
+        state.isGameOver = gameState.is_game_over || false;
+        state.activeSpecialMove = gameState.active_special_move || null;
+        
+        buildScoreboardUI(DOM, state);
+        updateThemeStyles(state);
+        
+        DOM.setupScreen.classList.remove("active");
+        DOM.gameScreen.classList.add("active");
+        
+        resizeCanvas(DOM.canvas, state);
+        switchPlayer(state.activePlayer, state.hasRolled);
+        playPlaceBlockSound();
+        
+        showToast(DOM, `Match started! You are Player ${state.localPlayerIndex} (${state.playerNames[state.localPlayerIndex]}).`);
+    } catch (e) {
+        console.error("Error starting online session:", e);
+        showToast(DOM, "Failed to load game session: " + e.message);
+    }
 }
 
 function setupEventListeners() {
@@ -861,9 +1200,62 @@ function setupEventListeners() {
     DOM.joinCancelBtn?.addEventListener("click", () => DOM.joinModal?.classList.remove("active"));
     DOM.joinConfirmBtn?.addEventListener("click", handleJoinRoom);
     
+    DOM.shareLinkBtn?.addEventListener("click", () => {
+        if (state.roomCode) {
+            const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${state.roomCode}`;
+            navigator.clipboard.writeText(inviteUrl);
+            showToast(DOM, "Direct invite link copied to clipboard!");
+        }
+    });
+
     DOM.lobbyStartBtn?.addEventListener("click", async () => {
         if (!state.isHost) return;
-        await updateRoomStatus(state.roomId, 'playing');
+        try {
+            DOM.lobbyStartBtn.disabled = true;
+            DOM.lobbyStartBtn.textContent = "Starting Match...";
+            
+            const { players, room } = await fetchRoomDetails(state.roomId);
+            const actualPlayersCount = players.length;
+            state.playersCount = actualPlayersCount;
+            state.gridSize = room.grid_size || state.gridSize;
+            state.mapType = room.map_type || state.mapType;
+            state.enableAdvancedRules = room.enable_advanced_rules ?? state.enableAdvancedRules;
+            state.enableTeamMode = room.enable_team_mode ?? state.enableTeamMode;
+            
+            // 1. Initialize clean 2D board matrix with map obstacles
+            resetBoardMatrix(state);
+            
+            // 2. Initialize database game state with clean 2D board
+            await updateOnlineGameState(state.roomId, {
+                board: state.board,
+                active_player: 1,
+                current_roll: [0, 0],
+                has_rolled: false,
+                consecutive_passes: 0,
+                is_game_over: false,
+                double_size_multiplier: { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1 },
+                consecutive_skipped_turns: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 },
+                active_special_move: null,
+                custom_cells_to_place: 0,
+                custom_cells_placed: []
+            });
+            
+            // 3. Update room status to 'playing'
+            await supabase
+                .from('rooms')
+                .update({
+                    status: 'playing',
+                    players_count: actualPlayersCount,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', state.roomId);
+                
+        } catch (err) {
+            console.error("Error starting match:", err);
+            showToast(DOM, "Failed to start match: " + err.message);
+            DOM.lobbyStartBtn.disabled = false;
+            DOM.lobbyStartBtn.textContent = "Start Match";
+        }
     });
     
     DOM.lobbyLeaveBtn?.addEventListener("click", () => {
@@ -895,7 +1287,7 @@ function setupEventListeners() {
         DOM.setupScreen.classList.remove("active");
         DOM.gameScreen.classList.add("active");
         
-        switchPlayer(1);
+        switchPlayer(1, false);
         resizeCanvas(DOM.canvas, state);
         playPlaceBlockSound();
     });
@@ -932,6 +1324,27 @@ function setupEventListeners() {
             if (DOM.customSizeInput) DOM.customSizeInput.value = "";
         });
     });
+
+    DOM.customSizeInput?.addEventListener("input", () => {
+        const val = parseInt(DOM.customSizeInput.value);
+        if (val >= 10 && val <= 80) {
+            DOM.gridSelectors.forEach(b => b.classList.remove("active"));
+            state.gridSize = val;
+        } else if (DOM.customSizeInput.value === "") {
+            const activeBtn = Array.from(DOM.gridSelectors).find(b => b.classList.contains("active"));
+            state.gridSize = activeBtn ? parseInt(activeBtn.dataset.size) : 20;
+        }
+    });
+    
+    DOM.customSizeInput?.addEventListener("change", () => {
+        let val = parseInt(DOM.customSizeInput.value);
+        if (isNaN(val)) return;
+        if (val < 10) val = 10;
+        if (val > 80) val = 80;
+        DOM.customSizeInput.value = val;
+        DOM.gridSelectors.forEach(b => b.classList.remove("active"));
+        state.gridSize = val;
+    });
     
     DOM.rollBtn?.addEventListener("click", triggerDiceRoll);
     DOM.rotateBtn?.addEventListener("click", toggleRotation);
@@ -939,13 +1352,41 @@ function setupEventListeners() {
     
     DOM.canvas?.addEventListener("mousemove", handleMouseMove);
     DOM.canvas?.addEventListener("mouseleave", handleMouseLeave);
+    
+    DOM.canvas?.addEventListener("mousedown", (e) => {
+        const isDrawingMode = state.activeSpecialMove === 'wall-drawing' || state.activeSpecialMove === 'custom36-drawing';
+        if (isDrawingMode && !state.isGameOver) {
+            if (state.isOnline && state.activePlayer !== state.localPlayerIndex) return;
+            if (e.button === 0) {
+                state.isDrawingDrag = true;
+                if (hoverState.row !== -1 && hoverState.col !== -1) {
+                    handleDrawModeCellClick(hoverState.row, hoverState.col);
+                }
+            } else if (e.button === 2) {
+                state.isErasingDrag = true;
+                if (hoverState.row !== -1 && hoverState.col !== -1) {
+                    handleDrawModeCellRemove(hoverState.row, hoverState.col);
+                }
+            }
+        }
+    });
+    
+    window.addEventListener("mouseup", () => {
+        state.isDrawingDrag = false;
+        state.isErasingDrag = false;
+    });
+    
     DOM.canvas?.addEventListener("click", handleGridClick);
     DOM.canvas?.addEventListener("contextmenu", (e) => {
         e.preventDefault();
-        if (state.hasRolled && !DOM.rotateBtn.disabled) {
+        const isDrawingMode = state.activeSpecialMove === 'wall-drawing' || state.activeSpecialMove === 'custom36-drawing';
+        if (!isDrawingMode && state.hasRolled && !DOM.rotateBtn.disabled) {
             toggleRotation();
         }
     });
+    
+    DOM.drawConfirmBtn?.addEventListener("click", confirmDrawShape);
+    DOM.drawResetBtn?.addEventListener("click", resetDrawShape);
     
     window.addEventListener("keydown", (e) => {
         if (document.activeElement && (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")) return;
@@ -967,20 +1408,43 @@ function setupEventListeners() {
         showToast(DOM, muted ? "Sound effects muted." : "Sound effects enabled.");
     });
     
-    DOM.resetBtn?.addEventListener("click", () => {
+    DOM.resetBtn?.addEventListener("click", async () => {
         if (confirm("Reset current match? Progress will be lost.")) {
-            resetBoardMatrix(state);
-            switchPlayer(1);
-            resizeCanvas(DOM.canvas, state);
+            if (state.isOnline && state.roomId) {
+                if (!state.isHost) {
+                    showToast(DOM, "Only the host can reset an online match.");
+                    return;
+                }
+                resetBoardMatrix(state);
+                switchPlayer(1, false);
+                resizeCanvas(DOM.canvas, state);
+                await syncGameStateToSupabase();
+                showToast(DOM, "Match reset.");
+            } else {
+                resetBoardMatrix(state);
+                switchPlayer(1, false);
+                resizeCanvas(DOM.canvas, state);
+            }
         }
     });
     
-    DOM.rematchBtn?.addEventListener("click", () => {
+    DOM.rematchBtn?.addEventListener("click", async () => {
         stopConfettiEffect();
         DOM.victoryOverlay.classList.remove("active");
-        resetBoardMatrix(state);
-        switchPlayer(1);
-        resizeCanvas(DOM.canvas, state);
+        if (state.isOnline && state.roomId) {
+            if (state.isHost) {
+                resetBoardMatrix(state);
+                switchPlayer(1, false);
+                resizeCanvas(DOM.canvas, state);
+                await syncGameStateToSupabase();
+            } else {
+                showToast(DOM, "Waiting for host to restart match...");
+            }
+        } else {
+            resetBoardMatrix(state);
+            switchPlayer(1, false);
+            resizeCanvas(DOM.canvas, state);
+        }
     });
     
     window.addEventListener("resize", () => {
