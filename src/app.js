@@ -6,7 +6,7 @@
 import { initAudio, synthSound, playRollTick, playPlaceBlockSound, playHoverTick, playErrorTone, playWallSound, playBreachSound, playVictoryFanfare, toggleMuted } from './audio.js';
 import { createInitialState, resetBoardMatrix, isValidPlacement, hasAnyValidMoves, tallyScores, getPlayerTeam, getStartingCorner, isDraftContiguous, validateFinalDraft, hasAnyDrawingMoves } from './game.js';
 import { resizeCanvas, drawBoard, startConfettiEffect, stopConfettiEffect } from './canvas.js';
-import { getDOMElements, showToast, buildScoreboardUI, updateThemeStyles, showDoublesModal, updateHelperBubble } from './ui.js';
+import { getDOMElements, showToast, buildScoreboardUI, updateThemeStyles, showDoublesModal, updateHelperBubble, getCornerName } from './ui.js';
 import { supabase, getCurrentUser, signInWithGoogle, createOnlineRoom, joinOnlineRoomByCode, fetchRoomDetails, updateOnlineGameState, updateRoomStatus, subscribeToRoom, sendBroadcastHover, trackPresence, unsubscribeFromRoom } from './db.js';
 
 let state = createInitialState();
@@ -808,7 +808,18 @@ function handleGridClick() {
     
     if (!hoverState.isValid) {
         playErrorTone();
-        showToast(DOM, "Invalid placement! Rule violation.");
+        let playerCellsCount = 0;
+        for (let i = 0; i < state.gridSize; i++) {
+            for (let j = 0; j < state.gridSize; j++) {
+                if (state.board[i]?.[j] === Number(state.activePlayer)) playerCellsCount++;
+            }
+        }
+        if (playerCellsCount === 0) {
+            const cornerName = getCornerName(state.activePlayer);
+            showToast(DOM, `First move must cover your glowing ${cornerName}!`);
+        } else {
+            showToast(DOM, "Invalid placement! Must attach to your territory along a flat edge.");
+        }
         return;
     }
     
@@ -954,13 +965,43 @@ async function handleJoinRoom() {
     }
 }
 
+function copyRoomCode(code, btnElement = null) {
+    if (!code) return;
+    navigator.clipboard.writeText(code).then(() => {
+        showToast(DOM, `Room code ${code} copied!`);
+        if (btnElement) {
+            btnElement.classList.add("copied");
+            const orig = btnElement.innerHTML;
+            btnElement.innerHTML = `<i class="fa-solid fa-check"></i> <span>Copied!</span>`;
+            setTimeout(() => {
+                btnElement.classList.remove("copied");
+                btnElement.innerHTML = orig;
+            }, 2000);
+        }
+    }).catch(() => {
+        const ta = document.createElement("textarea");
+        ta.value = code;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        showToast(DOM, `Room code ${code} copied!`);
+    });
+}
+
 function openLobbyModal(code) {
     if (!DOM.lobbyModal) return;
     if (DOM.lobbyRoomCode) {
         DOM.lobbyRoomCode.textContent = code;
         DOM.lobbyRoomCode.onclick = () => {
-            navigator.clipboard.writeText(code);
-            showToast(DOM, "Room code copied to clipboard!");
+            copyRoomCode(code, DOM.copyRoomCodeBtn);
+        };
+    }
+    
+    if (DOM.copyRoomCodeBtn) {
+        DOM.copyRoomCodeBtn.onclick = (e) => {
+            e.stopPropagation();
+            copyRoomCode(code, DOM.copyRoomCodeBtn);
         };
     }
     
@@ -1017,8 +1058,9 @@ function subscribeAndTrackRoom(roomId) {
                 return;
             }
             
-            // Case 2: Same active player, but new roll occurred
-            if (newGameState.has_rolled && !prevHasRolled) {
+            // Case 2: Same active player, roll state changed or updated
+            if (newGameState.has_rolled) {
+                const rollChanged = !prevHasRolled || (state.currentRoll[0] !== newGameState.current_roll[0] || state.currentRoll[1] !== newGameState.current_roll[1]);
                 state.currentRoll = newGameState.current_roll || [0, 0];
                 state.hasRolled = true;
                 
@@ -1038,7 +1080,7 @@ function subscribeAndTrackRoom(roomId) {
                     DOM.rollResultText.innerHTML = `You rolled a <strong>${state.currentRoll[0]} x ${state.currentRoll[1]}</strong> block!`;
                     updateHelperBubble(DOM, state);
                     
-                    if (!hasAnyValidMoves(state, state.activePlayer, state.currentRoll)) {
+                    if (rollChanged && !hasAnyValidMoves(state, state.activePlayer, state.currentRoll)) {
                         triggerAutoPassSequence();
                     }
                 } else {
@@ -1049,14 +1091,20 @@ function subscribeAndTrackRoom(roomId) {
                     DOM.passBtn.classList.remove("active-ready");
                     DOM.turnText.textContent = `${activeName}'s Turn`;
                     DOM.rollResultText.innerHTML = `<strong>${activeName}</strong> rolled a <strong>${state.currentRoll[0]} x ${state.currentRoll[1]}</strong> block! Placing block...`;
+                    updateHelperBubble(DOM, state);
                 }
+            } else if (!newGameState.has_rolled && prevHasRolled) {
+                state.hasRolled = false;
+                state.currentRoll = [0, 0];
+                switchPlayer(state.activePlayer, false);
             }
         },
         onPlayersUpdate: async () => {
             refreshLobbyPlayers(roomId);
         },
         onRoomStatusUpdate: (updatedRoom) => {
-            if (updatedRoom.status === 'playing') {
+            if (updatedRoom.status === 'playing' && !state.isGameSessionActive) {
+                state.isGameSessionActive = true;
                 DOM.lobbyModal?.classList.remove("active");
                 startOnlineGameSession(updatedRoom);
             }
@@ -1168,6 +1216,14 @@ async function startOnlineGameSession(room) {
         switchPlayer(state.activePlayer, state.hasRolled);
         playPlaceBlockSound();
         
+        if (DOM.onlineRoomBadge && DOM.onlineRoomCode) {
+            DOM.onlineRoomBadge.classList.remove("hidden");
+            DOM.onlineRoomCode.textContent = state.roomCode || activeRoom.code || "ONLINE";
+            DOM.onlineRoomBadge.onclick = () => {
+                copyRoomCode(state.roomCode || activeRoom.code, null);
+            };
+        }
+        
         showToast(DOM, `Match started! You are Player ${state.localPlayerIndex} (${state.playerNames[state.localPlayerIndex]}).`);
     } catch (e) {
         console.error("Error starting online session:", e);
@@ -1263,6 +1319,7 @@ function setupEventListeners() {
         DOM.lobbyModal?.classList.remove("active");
         state.isOnline = false;
         state.roomId = null;
+        state.isGameSessionActive = false;
         showToast(DOM, "Left the room.");
     });
     
@@ -1286,6 +1343,9 @@ function setupEventListeners() {
         
         DOM.setupScreen.classList.remove("active");
         DOM.gameScreen.classList.add("active");
+        if (DOM.onlineRoomBadge) {
+            DOM.onlineRoomBadge.classList.add("hidden");
+        }
         
         switchPlayer(1, false);
         resizeCanvas(DOM.canvas, state);

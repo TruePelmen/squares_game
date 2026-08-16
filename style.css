@@ -52,6 +52,11 @@
     user-select: none;
 }
 
+input, textarea, [contenteditable="true"], .selectable, .room-code-badge, .room-code-text, #lobby-room-code {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+}
+
 body {
     background-color: var(--bg-darkest);
     color: var(--text-primary);
@@ -1520,5 +1525,124 @@ body {
     background: var(--neon-emerald);
     box-shadow: 0 0 8px var(--neon-emerald);
 }
+
+/* ==========================================================================
+   MULTIPLAYER ROOM CODE & COPY UI
+   ========================================================================== */
+.room-code-display-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(0, 240, 255, 0.04);
+    border: 1px solid rgba(0, 240, 255, 0.25);
+    border-radius: var(--radius-md);
+    padding: 10px 14px;
+    margin: 12px 0 16px 0;
+    gap: 12px;
+    box-shadow: 0 4px 20px rgba(0, 240, 255, 0.08);
+}
+
+.room-code-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+}
+
+.room-code-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.room-code-badge {
+    font-family: 'Space Grotesk', monospace;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: 4px;
+    color: var(--neon-cyan);
+    text-shadow: 0 0 12px rgba(0, 240, 255, 0.5);
+    user-select: all !important;
+    -webkit-user-select: all !important;
+    cursor: copy;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: var(--transition-fast);
+}
+
+.room-code-badge:hover {
+    background: rgba(0, 240, 255, 0.1);
+}
+
+.copy-code-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.copy-code-btn {
+    background: rgba(0, 240, 255, 0.12);
+    border: 1px solid var(--neon-cyan);
+    color: var(--neon-cyan);
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-heading);
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: var(--transition-smooth);
+}
+
+.copy-code-btn:hover {
+    background: var(--neon-cyan);
+    color: var(--bg-darkest);
+    box-shadow: 0 0 15px rgba(0, 240, 255, 0.45);
+    transform: translateY(-1px);
+}
+
+.copy-code-btn.copied {
+    background: var(--neon-emerald) !important;
+    border-color: var(--neon-emerald) !important;
+    color: var(--bg-darkest) !important;
+    box-shadow: 0 0 15px rgba(0, 255, 170, 0.45) !important;
+}
+
+/* In-game header online badge */
+.online-room-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: rgba(0, 240, 255, 0.08);
+    border: 1px solid rgba(0, 240, 255, 0.3);
+    border-radius: 30px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--neon-cyan);
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    user-select: none;
+}
+
+.online-room-badge:hover {
+    background: rgba(0, 240, 255, 0.18);
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
+    transform: translateY(-1px);
+}
+
+.online-room-badge .code-highlight {
+    font-family: monospace;
+    font-weight: 800;
+    letter-spacing: 2px;
+    user-select: all !important;
+    -webkit-user-select: all !important;
+}
+
 
 

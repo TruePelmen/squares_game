@@ -128,7 +128,8 @@ export function drawBoard(canvasElement, state, hoverState, remoteHoverState = n
                 const start = getCornerCoord(state.gridSize, i);
                 const theme = state.colors[state.playerColors[i]];
                 if (theme) {
-                    drawCornerIndicator(start.r, start.c, theme.hex);
+                    const isActive = (state.activePlayer === i);
+                    drawCornerIndicator(start.r, start.c, theme.hex, i, isActive, state.playerNames[i]);
                 }
             }
         }
@@ -212,26 +213,96 @@ function getCornerCoord(gridSize, pNum) {
     }
 }
 
-function drawCornerIndicator(r, c, hex) {
+function drawCornerIndicator(r, c, hex, pNum, isActive = false, playerName = "") {
     ctx.save();
-    ctx.strokeStyle = hex;
-    ctx.lineWidth = 2;
-    ctx.shadowColor = hex;
-    ctx.shadowBlur = 8;
     
-    const pad = 4;
+    const pad = 2;
     const x = c * gridCellSize + pad;
     const y = r * gridCellSize + pad;
     const size = gridCellSize - pad * 2;
+    const pulse = 0.5 + Math.sin(Date.now() * (isActive ? 0.007 : 0.003)) * 0.5;
     
-    ctx.fillStyle = "rgba(255,255,255,0.03)";
-    ctx.fillRect(x, y, size, size);
-    ctx.strokeRect(x, y, size, size);
-    
-    const pulse = 0.5 + Math.sin(Date.now() * 0.005) * 0.5;
-    ctx.fillStyle = hex;
-    ctx.globalAlpha = 0.15 + pulse * 0.25;
-    ctx.fillRect(x + 4, y + 4, size - 8, size - 8);
+    if (isActive) {
+        // Glowing animated beacon for active player's starting corner
+        ctx.shadowColor = hex;
+        ctx.shadowBlur = 14 + pulse * 10;
+        ctx.strokeStyle = hex;
+        ctx.lineWidth = 2.5;
+        
+        // Background fill
+        ctx.fillStyle = hex;
+        ctx.globalAlpha = 0.18 + pulse * 0.22;
+        ctx.fillRect(x, y, size, size);
+        
+        // Outer pulsing ring
+        ctx.globalAlpha = 0.4 + pulse * 0.5;
+        ctx.strokeRect(x, y, size, size);
+        
+        // Inner diamond / crosshair target
+        ctx.beginPath();
+        const midX = x + size / 2;
+        const midY = y + size / 2;
+        const d = (size / 3) * (0.8 + pulse * 0.3);
+        ctx.moveTo(midX, midY - d);
+        ctx.lineTo(midX + d, midY);
+        ctx.lineTo(midX, midY + d);
+        ctx.lineTo(midX - d, midY);
+        ctx.closePath();
+        ctx.fillStyle = hex;
+        ctx.globalAlpha = 0.8 + pulse * 0.2;
+        ctx.fill();
+        
+        // Corner bracket accents
+        const bracketLen = Math.min(10, size / 3);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        // Top-Left
+        ctx.moveTo(x - 2, y + bracketLen); ctx.lineTo(x - 2, y - 2); ctx.lineTo(x + bracketLen, y - 2);
+        // Top-Right
+        ctx.moveTo(x + size + 2 - bracketLen, y - 2); ctx.lineTo(x + size + 2, y - 2); ctx.lineTo(x + size + 2, y + bracketLen);
+        // Bottom-Right
+        ctx.moveTo(x + size + 2, y + size + 2 - bracketLen); ctx.lineTo(x + size + 2, y + size + 2); ctx.lineTo(x + size + 2 - bracketLen, y + size + 2);
+        // Bottom-Left
+        ctx.moveTo(x + bracketLen, y + size + 2); ctx.lineTo(x - 2, y + size + 2); ctx.lineTo(x - 2, y + size + 2 - bracketLen);
+        ctx.stroke();
+        
+        // Floating label
+        if (size >= 18) {
+            ctx.shadowBlur = 4;
+            ctx.font = "bold 9px 'Space Grotesk', sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = "#ffffff";
+            ctx.globalAlpha = 0.95;
+            
+            // Label above or below depending on row
+            const labelY = (r === 0) ? (y + size + 11) : (y - 10);
+            const labelX = (c === 0) ? (x + size / 2 + 10) : (x + size / 2 - 10);
+            
+            ctx.fillStyle = "rgba(7, 7, 14, 0.85)";
+            ctx.fillRect(labelX - 24, labelY - 7, 48, 14);
+            ctx.strokeStyle = hex;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(labelX - 24, labelY - 7, 48, 14);
+            
+            ctx.fillStyle = hex;
+            ctx.fillText(`P${pNum} START`, labelX, labelY);
+        }
+    } else {
+        // Inactive player starting corner indicator
+        ctx.strokeStyle = hex;
+        ctx.lineWidth = 1.5;
+        ctx.shadowColor = hex;
+        ctx.shadowBlur = 6;
+        
+        ctx.fillStyle = "rgba(255,255,255,0.02)";
+        ctx.fillRect(x, y, size, size);
+        ctx.strokeRect(x, y, size, size);
+        
+        ctx.fillStyle = hex;
+        ctx.globalAlpha = 0.15 + pulse * 0.15;
+        ctx.fillRect(x + 3, y + 3, size - 6, size - 6);
+    }
     
     ctx.restore();
 }

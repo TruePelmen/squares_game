@@ -56,7 +56,8 @@ export function createInitialState() {
         roomId: null,
         roomCode: null,
         localPlayerIndex: 1, // Which player slot this client controls in online mode
-        isHost: false
+        isHost: false,
+        isGameSessionActive: false
     };
 }
 

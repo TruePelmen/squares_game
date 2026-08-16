@@ -75,10 +75,14 @@ export function getDOMElements() {
         
         lobbyModal: document.getElementById("lobby-modal"),
         lobbyRoomCode: document.getElementById("lobby-room-code"),
+        copyRoomCodeBtn: document.getElementById("copy-room-code-btn"),
         lobbyPlayersList: document.getElementById("lobby-players-list"),
         lobbyStartBtn: document.getElementById("lobby-start-btn"),
         lobbyLeaveBtn: document.getElementById("lobby-leave-btn"),
         shareLinkBtn: document.getElementById("share-link-btn"),
+        
+        onlineRoomBadge: document.getElementById("online-room-badge"),
+        onlineRoomCode: document.getElementById("online-room-code"),
         
         joinModal: document.getElementById("join-modal"),
         roomCodeInput: document.getElementById("room-code-input"),
@@ -212,15 +216,45 @@ export function showDoublesModal(DOM, title, subtitle, options) {
     DOM.doublesModal.classList.add("active");
 }
 
+export function getCornerName(playerNum) {
+    const p = Number(playerNum);
+    switch (p) {
+        case 1: return "Top-Left Corner";
+        case 2: return "Bottom-Right Corner";
+        case 3: return "Top-Right Corner";
+        case 4: return "Bottom-Left Corner";
+        case 5: return "Middle-Left";
+        case 6: return "Middle-Right";
+        default: return "designated starting corner";
+    }
+}
+
 export function updateHelperBubble(DOM, state) {
     if (!DOM.helperText) return;
+    
+    // Check if active player is on their first turn
+    let playerCellsCount = 0;
+    if (state.board && Array.isArray(state.board)) {
+        for (let i = 0; i < state.board.length; i++) {
+            if (Array.isArray(state.board[i])) {
+                for (let j = 0; j < state.board[i].length; j++) {
+                    if (state.board[i][j] === Number(state.activePlayer)) playerCellsCount++;
+                }
+            }
+        }
+    }
     
     if (state.activeSpecialMove === 'wall-drawing') {
         DOM.helperText.innerHTML = `Construct Wall: Left click <strong>${state.customCellsToPlace}</strong> connected empty cells on the grid. They must be contiguous!`;
     } else if (state.activeSpecialMove === 'custom36-drawing') {
         DOM.helperText.innerHTML = `Draw custom territory: Click <strong>${state.customCellsToPlace}</strong> empty cells. First cell must touch your territory.`;
     } else if (!state.hasRolled) {
-        DOM.helperText.textContent = "Roll the dice to begin your turn!";
+        if (playerCellsCount === 0) {
+            const cornerStr = getCornerName(state.activePlayer);
+            DOM.helperText.innerHTML = `⭐ <strong>First Turn:</strong> Roll dice, then place starting at your <strong>${cornerStr}</strong>!`;
+        } else {
+            DOM.helperText.textContent = "Roll the dice to begin your turn!";
+        }
     } else {
         const sizeStr = state.isRotated ? 
             `${state.currentRoll[1]} x ${state.currentRoll[0]}` : 
@@ -233,6 +267,11 @@ export function updateHelperBubble(DOM, state) {
             specialLabel = "<br><span style='color: var(--neon-pink); font-weight:700;'>TECTONIC BREACH: Overwrite any opponent cells covered by this block!</span>";
         }
         
-        DOM.helperText.innerHTML = `You rolled a <strong>${sizeStr}</strong> rectangle.${specialLabel}<br>Hover and click to place. Press <strong>Spacebar</strong> to rotate.`;
+        if (playerCellsCount === 0 && state.activeSpecialMove !== '1x1-anywhere') {
+            const cornerStr = getCornerName(state.activePlayer);
+            DOM.helperText.innerHTML = `You rolled <strong>${sizeStr}</strong>.<br><span style="color: var(--neon-gold); font-weight: 700;">First move must cover your glowing ${cornerStr}!</span> Press <strong>Spacebar</strong> to rotate.`;
+        } else {
+            DOM.helperText.innerHTML = `You rolled a <strong>${sizeStr}</strong> rectangle.${specialLabel}<br>Hover and click to place. Press <strong>Spacebar</strong> to rotate.`;
+        }
     }
 }

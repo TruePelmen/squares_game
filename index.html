@@ -365,6 +365,9 @@
                 
                 <!-- Utility buttons -->
                 <div class="header-actions">
+                    <div id="online-room-badge" class="online-room-badge hidden" title="Click to copy Room Code">
+                        <i class="fa-solid fa-satellite-dish"></i> <span>Room:</span> <span id="online-room-code" class="code-highlight">------</span> <i class="fa-solid fa-copy" style="font-size: 0.75rem; margin-left: 2px;"></i>
+                    </div>
                     <button id="mute-btn" class="header-btn" title="Toggle Sounds">
                         <i id="mute-icon" class="fa-solid fa-volume-high"></i>
                     </button>
@@ -642,9 +645,20 @@
                 <i class="fa-solid fa-users-viewfinder"></i>
             </div>
             <h2>ONLINE LOBBY</h2>
-            <p class="winner-subtitle">Room Code: <strong id="lobby-room-code" style="color: var(--neon-cyan); font-size: 1.3rem; letter-spacing: 2px;">------</strong></p>
             
-            <button id="share-link-btn" class="control-btn" style="width: 100%; margin: 12px 0 5px 0; border-color: var(--neon-cyan); color: var(--neon-cyan);">
+            <div class="room-code-display-card">
+                <div class="room-code-info">
+                    <span class="room-code-label">Room Code</span>
+                    <span id="lobby-room-code" class="room-code-badge" title="Click or select to copy">------</span>
+                </div>
+                <div class="copy-code-actions">
+                    <button id="copy-room-code-btn" class="copy-code-btn" type="button" title="Copy 6-character code">
+                        <i class="fa-solid fa-copy"></i> <span>Copy Code</span>
+                    </button>
+                </div>
+            </div>
+            
+            <button id="share-link-btn" class="control-btn" style="width: 100%; margin: 0 0 10px 0; border-color: var(--neon-cyan); color: var(--neon-cyan); padding: 10px;">
                 <i class="fa-solid fa-share-nodes"></i> Copy Direct Invite Link
             </button>
             
