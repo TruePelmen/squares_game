@@ -72,6 +72,7 @@ export function getDOMElements() {
         userProfileBadge: document.getElementById("user-profile-badge"),
         userAvatar: document.getElementById("user-avatar"),
         userName: document.getElementById("user-name"),
+        signOutBtn: document.getElementById("sign-out-btn"),
         
         lobbyModal: document.getElementById("lobby-modal"),
         lobbyRoomCode: document.getElementById("lobby-room-code"),
@@ -87,7 +88,17 @@ export function getDOMElements() {
         joinModal: document.getElementById("join-modal"),
         roomCodeInput: document.getElementById("room-code-input"),
         joinConfirmBtn: document.getElementById("join-confirm-btn"),
-        joinCancelBtn: document.getElementById("join-cancel-btn")
+        joinCancelBtn: document.getElementById("join-cancel-btn"),
+        
+        profileModal: document.getElementById("profile-modal"),
+        closeProfileBtn: document.getElementById("close-profile-btn"),
+        profileSignOutBtn: document.getElementById("profile-sign-out-btn"),
+        profileModalAvatar: document.getElementById("profile-modal-avatar"),
+        profileModalName: document.getElementById("profile-modal-name"),
+        profileModalEmail: document.getElementById("profile-modal-email"),
+        pStatMatches: document.getElementById("p-stat-matches"),
+        pStatWins: document.getElementById("p-stat-wins"),
+        pStatWinrate: document.getElementById("p-stat-winrate")
     };
 }
 

@@ -797,6 +797,17 @@ body {
     box-shadow: 0 4px 15px var(--p1-glow);
 }
 
+.action-btn:disabled,
+.pulse-glow-btn:disabled,
+.action-btn-large:disabled {
+    opacity: 0.3 !important;
+    cursor: not-allowed !important;
+    box-shadow: none !important;
+    transform: none !important;
+    filter: grayscale(0.7) !important;
+    pointer-events: none !important;
+}
+
 /* Controls and Info bubble */
 .placement-controls {
     padding: 16px;
@@ -1452,6 +1463,10 @@ body {
     box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
 }
 
+.hidden {
+    display: none !important;
+}
+
 .google-login-btn {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.15);
@@ -1477,19 +1492,163 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 12px;
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid var(--border-glass);
+    padding: 6px 14px;
+    background: rgba(0, 240, 255, 0.06);
+    border: 1px solid rgba(0, 240, 255, 0.3);
     border-radius: var(--radius-sm);
     font-size: 0.85rem;
     font-weight: 600;
     color: var(--neon-cyan);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.1);
+}
+
+.user-profile-badge:hover {
+    background: rgba(0, 240, 255, 0.15);
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 15px rgba(0, 240, 255, 0.25);
+    transform: translateY(-1px);
 }
 
 .user-profile-badge img {
-    width: 24px;
-    height: 24px;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
+    border: 1.5px solid var(--neon-cyan);
+}
+
+/* Profile Modal Details */
+.profile-card {
+    max-width: 440px !important;
+    padding: 35px 28px !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    position: relative;
+}
+
+.profile-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+}
+
+.profile-avatar-wrapper {
+    position: relative;
+    margin-bottom: 6px;
+}
+
+.profile-avatar-large {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 3px solid var(--neon-cyan);
+    box-shadow: 0 0 20px rgba(0, 240, 255, 0.35);
+    background: var(--bg-dark);
+    object-fit: cover;
+}
+
+.profile-status-indicator {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--neon-emerald);
+    border: 2px solid var(--bg-darker);
+    box-shadow: 0 0 8px var(--neon-emerald);
+}
+
+.profile-name {
+    font-family: var(--font-heading);
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: 0.5px;
+    text-align: center;
+}
+
+.profile-email {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.profile-badge-pill {
+    margin-top: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: rgba(0, 240, 255, 0.08);
+    border: 1px solid rgba(0, 240, 255, 0.25);
+    color: var(--neon-cyan);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.profile-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    width: 100%;
+    margin-top: 5px;
+}
+
+.p-stat-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    padding: 12px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.p-stat-val {
+    font-family: var(--font-heading);
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.p-stat-label {
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-align: center;
+}
+
+.profile-actions {
+    width: 100%;
+    margin-top: 5px;
+}
+
+.profile-logout-btn {
+    width: 100%;
+    padding: 12px;
+    border-color: var(--neon-pink);
+    color: var(--neon-pink);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(255, 0, 127, 0.05);
+}
+
+.profile-logout-btn:hover {
+    background: rgba(255, 0, 127, 0.15);
+    box-shadow: 0 0 15px rgba(255, 0, 127, 0.3);
+    color: #fff;
 }
 
 .lobby-player-slot {

@@ -39,11 +39,12 @@
                     
                     <div id="auth-section" style="width: 100%; margin-bottom: 15px; display: flex; justify-content: center;">
                         <button id="google-auth-btn" class="google-login-btn">
-                            <i class="fa-brands fa-google"></i> Sign in with Google
+                            <i class="fa-brands fa-google"></i> <span>Sign in with Google</span>
                         </button>
-                        <div id="user-profile-badge" class="user-profile-badge hidden">
+                        <div id="user-profile-badge" class="user-profile-badge hidden" title="View Profile">
                             <img id="user-avatar" src="" alt="Avatar">
                             <span id="user-name">User</span>
+                            <i class="fa-solid fa-chevron-down" style="font-size: 0.65rem; opacity: 0.7; margin-left: 2px;"></i>
                         </div>
                     </div>
                     
@@ -620,15 +621,33 @@
 
     <!-- ==================== JOIN ROOM MODAL ==================== -->
     <div id="join-modal" class="victory-overlay" style="z-index: 200;">
-        <div class="victory-card glass-panel glow-border scale-up-anim" style="max-width: 420px; padding: 35px 25px;">
+        <div class="victory-card glass-panel glow-border scale-up-anim" style="max-width: 420px; padding: 30px 25px;">
             <div class="crown-icon" style="color: var(--neon-cyan);">
                 <i class="fa-solid fa-key"></i>
             </div>
             <h2>JOIN ROOM</h2>
             <p class="winner-subtitle">Enter the 6-character room code from your host.</p>
             
-            <div class="input-group" style="width: 100%; margin: 20px 0;">
-                <input type="text" id="room-code-input" placeholder="e.g. XF4G8A" maxlength="6" style="text-transform: uppercase; font-size: 1.5rem; text-align: center; letter-spacing: 4px; font-weight: 800;">
+            <div class="input-group" style="width: 100%; margin: 15px 0 10px 0;">
+                <label for="room-code-input" style="font-size: 0.8rem; color: var(--text-muted); text-align: left; display: block; margin-bottom: 4px;">Room Code</label>
+                <input type="text" id="room-code-input" placeholder="e.g. XF4G8A" maxlength="6" style="text-transform: uppercase; font-size: 1.4rem; text-align: center; letter-spacing: 4px; font-weight: 800;">
+            </div>
+
+            <div class="input-group" style="width: 100%; margin: 0 0 15px 0;">
+                <label for="join-player-name" style="font-size: 0.8rem; color: var(--text-muted); text-align: left; display: block; margin-bottom: 4px;">Your Nickname</label>
+                <input type="text" id="join-player-name" placeholder="Neon Pink" value="Neon Pink" style="font-size: 1rem; text-align: center; font-weight: 600;">
+            </div>
+
+            <div class="color-picker-group" style="width: 100%; margin-bottom: 20px;">
+                <label style="font-size: 0.8rem; color: var(--text-muted); text-align: left; display: block; margin-bottom: 6px;">Your Neon Color</label>
+                <div class="color-options" id="join-colors" style="justify-content: center; gap: 10px;">
+                    <button class="color-btn" data-color="cyan" style="--c: var(--neon-cyan);"></button>
+                    <button class="color-btn active" data-color="pink" style="--c: var(--neon-pink);"></button>
+                    <button class="color-btn" data-color="emerald" style="--c: var(--neon-emerald);"></button>
+                    <button class="color-btn" data-color="purple" style="--c: var(--neon-purple);"></button>
+                    <button class="color-btn" data-color="gold" style="--c: var(--neon-gold);"></button>
+                    <button class="color-btn" data-color="orange" style="--c: var(--neon-orange);"></button>
+                </div>
             </div>
 
             <div style="display: flex; gap: 10px; width: 100%;">
@@ -669,6 +688,47 @@
             <div style="display: flex; gap: 10px; width: 100%;">
                 <button id="lobby-leave-btn" class="control-btn" style="flex: 1; padding: 12px; border-color: var(--neon-pink); color: var(--neon-pink);">Leave Room</button>
                 <button id="lobby-start-btn" class="action-btn-large pulse-glow-btn" style="flex: 2; padding: 12px; font-size: 0.95rem;">Start Match</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== USER PROFILE MODAL ==================== -->
+    <div id="profile-modal" class="victory-overlay" style="z-index: 210;">
+        <div class="victory-card glass-panel glow-border scale-up-anim profile-card">
+            <button id="close-profile-btn" class="close-drawer-btn" style="position: absolute; top: 16px; right: 16px;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="profile-header">
+                <div class="profile-avatar-wrapper">
+                    <img id="profile-modal-avatar" src="" alt="Avatar" class="profile-avatar-large">
+                    <div class="profile-status-indicator online"></div>
+                </div>
+                <h2 id="profile-modal-name" class="profile-name">Player</h2>
+                <span id="profile-modal-email" class="profile-email">player@gmail.com</span>
+                <div class="profile-badge-pill">
+                    <i class="fa-brands fa-google"></i> Google Verified Player
+                </div>
+            </div>
+
+            <div class="profile-stats-grid">
+                <div class="p-stat-card">
+                    <span class="p-stat-val" id="p-stat-matches">0</span>
+                    <span class="p-stat-label">Matches</span>
+                </div>
+                <div class="p-stat-card">
+                    <span class="p-stat-val" id="p-stat-wins" style="color: var(--neon-emerald);">0</span>
+                    <span class="p-stat-label">Victories</span>
+                </div>
+                <div class="p-stat-card">
+                    <span class="p-stat-val" id="p-stat-winrate" style="color: var(--neon-cyan);">0%</span>
+                    <span class="p-stat-label">Win Rate</span>
+                </div>
+            </div>
+
+            <div class="profile-actions">
+                <button id="profile-sign-out-btn" class="control-btn profile-logout-btn">
+                    <i class="fa-solid fa-right-from-bracket"></i> Sign Out
+                </button>
             </div>
         </div>
     </div>

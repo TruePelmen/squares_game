@@ -7,13 +7,49 @@ import { initAudio, synthSound, playRollTick, playPlaceBlockSound, playHoverTick
 import { createInitialState, resetBoardMatrix, isValidPlacement, hasAnyValidMoves, tallyScores, getPlayerTeam, getStartingCorner, isDraftContiguous, validateFinalDraft, hasAnyDrawingMoves } from './game.js';
 import { resizeCanvas, drawBoard, startConfettiEffect, stopConfettiEffect } from './canvas.js';
 import { getDOMElements, showToast, buildScoreboardUI, updateThemeStyles, showDoublesModal, updateHelperBubble, getCornerName } from './ui.js';
-import { supabase, getCurrentUser, signInWithGoogle, createOnlineRoom, joinOnlineRoomByCode, fetchRoomDetails, updateOnlineGameState, updateRoomStatus, subscribeToRoom, sendBroadcastHover, trackPresence, unsubscribeFromRoom } from './db.js';
+import { supabase, getCurrentUser, signInWithGoogle, signOutUser, onAuthChange, createOnlineRoom, joinOnlineRoomByCode, fetchRoomDetails, updateOnlineGameState, updateRoomStatus, subscribeToRoom, sendBroadcastHover, trackPresence, unsubscribeFromRoom } from './db.js';
 
 let state = createInitialState();
 let hoverState = { row: -1, col: -1, isValid: false };
 let remoteHoverState = { row: -1, col: -1, width: 0, height: 0, playerIndex: 0 };
 let DOM = {};
 let animationFrameId = null;
+let currentAuthUser = null;
+
+function getPlayerStats() {
+    try {
+        const data = localStorage.getItem("squares_player_stats");
+        return data ? JSON.parse(data) : { matches: 0, wins: 0 };
+    } catch (e) {
+        return { matches: 0, wins: 0 };
+    }
+}
+
+function updatePlayerStats(didWin) {
+    const stats = getPlayerStats();
+    stats.matches = (stats.matches || 0) + 1;
+    if (didWin) stats.wins = (stats.wins || 0) + 1;
+    try {
+        localStorage.setItem("squares_player_stats", JSON.stringify(stats));
+    } catch (e) {}
+}
+
+function refreshProfileModalUI() {
+    const stats = getPlayerStats();
+    if (DOM.pStatMatches) DOM.pStatMatches.textContent = stats.matches.toString();
+    if (DOM.pStatWins) DOM.pStatWins.textContent = stats.wins.toString();
+    const rate = stats.matches > 0 ? Math.round((stats.wins / stats.matches) * 100) : 0;
+    if (DOM.pStatWinrate) DOM.pStatWinrate.textContent = `${rate}%`;
+    
+    if (currentAuthUser) {
+        const fullName = currentAuthUser.user_metadata?.full_name || currentAuthUser.email?.split("@")[0] || "Player";
+        if (DOM.profileModalName) DOM.profileModalName.textContent = fullName;
+        if (DOM.profileModalEmail) DOM.profileModalEmail.textContent = currentAuthUser.email || "";
+        if (DOM.profileModalAvatar && currentAuthUser.user_metadata?.avatar_url) {
+            DOM.profileModalAvatar.src = currentAuthUser.user_metadata.avatar_url;
+        }
+    }
+}
 
 function init() {
     DOM = getDOMElements();
@@ -22,6 +58,10 @@ function init() {
     setupTeamSelectors();
     checkCurrentUser();
     checkUrlRoomCode();
+    
+    onAuthChange((event, session) => {
+        checkCurrentUser(session?.user || null);
+    });
     
     resetBoardMatrix(state);
     resizeCanvas(DOM.canvas, state);
@@ -40,17 +80,33 @@ function checkUrlRoomCode() {
     }
 }
 
-async function checkCurrentUser() {
-    const user = await getCurrentUser();
-    if (user && DOM.userProfileBadge) {
+async function checkCurrentUser(passedUser = null) {
+    const user = passedUser !== null ? passedUser : await getCurrentUser();
+    currentAuthUser = user;
+    
+    if (user) {
         DOM.googleAuthBtn?.classList.add("hidden");
-        DOM.userProfileBadge.classList.remove("hidden");
+        DOM.userProfileBadge?.classList.remove("hidden");
+        
+        const displayName = user.user_metadata?.full_name || user.email?.split("@")[0] || "Player";
         if (DOM.userName) {
-            DOM.userName.textContent = user.user_metadata?.full_name || user.email;
+            DOM.userName.textContent = displayName;
         }
         if (DOM.userAvatar && user.user_metadata?.avatar_url) {
             DOM.userAvatar.src = user.user_metadata.avatar_url;
         }
+        
+        const p1Input = document.getElementById("p1-name");
+        const joinInput = document.getElementById("join-player-name");
+        const nickname = user.user_metadata?.full_name?.split(" ")[0] || user.user_metadata?.name || user.email?.split("@")[0];
+        if (nickname) {
+            if (p1Input && p1Input.value === "Cyber Blue") p1Input.value = nickname;
+            if (joinInput && joinInput.value === "Neon Pink") joinInput.value = nickname;
+        }
+        refreshProfileModalUI();
+    } else {
+        DOM.googleAuthBtn?.classList.remove("hidden");
+        DOM.userProfileBadge?.classList.add("hidden");
     }
 }
 
@@ -70,6 +126,7 @@ function setupColorSelectors() {
     for (let i = 1; i <= 6; i++) {
         registerGroup(`p${i}-colors`, i);
     }
+    registerGroup("join-colors", 2);
 }
 
 function setupTeamSelectors() {
@@ -93,6 +150,11 @@ function setupTeamSelectors() {
 
 function switchPlayer(nextPlayer, preserveRollState = false) {
     state.activePlayer = nextPlayer;
+    hoverState.row = -1;
+    hoverState.col = -1;
+    hoverState.isValid = false;
+    remoteHoverState = { row: -1, col: -1, width: 0, height: 0, playerIndex: 0 };
+    
     if (!preserveRollState) {
         state.hasRolled = false;
         state.isRotated = false;
@@ -149,16 +211,16 @@ function switchPlayer(nextPlayer, preserveRollState = false) {
     document.body.className = `player-active-p${state.activePlayer}`;
     
     const activeTheme = state.colors[state.playerColors[state.activePlayer]];
-    const nextPlayerIndex = (nextPlayer % state.playersCount) || state.playersCount;
-    const nextTheme = state.colors[state.playerColors[nextPlayerIndex]];
+    const otherPlayerIndex = (state.activePlayer % state.playersCount) + 1;
+    const otherTheme = state.colors[state.playerColors[otherPlayerIndex]];
     
     if (activeTheme) {
         document.documentElement.style.setProperty("--p1-color", activeTheme.hex);
         document.documentElement.style.setProperty("--p1-glow", activeTheme.glow);
     }
-    if (nextTheme) {
-        document.documentElement.style.setProperty("--p2-color", nextTheme.hex);
-        document.documentElement.style.setProperty("--p2-glow", nextTheme.glow);
+    if (otherTheme) {
+        document.documentElement.style.setProperty("--p2-color", otherTheme.hex);
+        document.documentElement.style.setProperty("--p2-glow", otherTheme.glow);
     }
     
     if (state.scoreCardElements) {
@@ -606,6 +668,9 @@ function confirmDrawShape() {
     updateScoreboardValues(counts);
     state.consecutivePasses = 0;
     
+    handleMouseLeave();
+    remoteHoverState = { row: -1, col: -1, width: 0, height: 0, playerIndex: 0 };
+    
     if (DOM.drawControlsBar) DOM.drawControlsBar.classList.remove("active");
     
     const next = (state.activePlayer % state.playersCount) + 1;
@@ -647,6 +712,9 @@ function triggerAutoPassSequence() {
 function passTurn() {
     if (!state.hasRolled) return;
     if (state.isOnline && state.activePlayer !== state.localPlayerIndex) return;
+    
+    handleMouseLeave();
+    remoteHoverState = { row: -1, col: -1, width: 0, height: 0, playerIndex: 0 };
     
     state.consecutivePasses++;
     state.consecutiveSkippedTurns[state.activePlayer] = (state.consecutiveSkippedTurns[state.activePlayer] || 0) + 1;
@@ -712,6 +780,9 @@ function endMatch() {
     DOM.vStatWinnerScore.textContent = winner.score.toString();
     DOM.vStatWinnerPct.textContent = `${Math.round((winner.score / total) * 100)}% of grid`;
     DOM.victoryOverlay.classList.add("active");
+    
+    const isWinner = winner.id === (state.isOnline ? state.localPlayerIndex : 1);
+    updatePlayerStats(isWinner);
     
     startConfettiEffect(DOM.confettiCanvas, winnerTheme ? winnerTheme.hex : "#00f0ff");
 }
@@ -789,6 +860,16 @@ function handleMouseLeave() {
     hoverState.row = -1;
     hoverState.col = -1;
     hoverState.isValid = false;
+    
+    if (state.isOnline && state.roomId) {
+        sendBroadcastHover({
+            row: -1,
+            col: -1,
+            width: 0,
+            height: 0,
+            playerIndex: state.localPlayerIndex
+        });
+    }
 }
 
 function handleGridClick() {
@@ -850,7 +931,9 @@ function handleGridClick() {
     const { counts } = tallyScores(state);
     updateScoreboardValues(counts);
     state.consecutivePasses = 0;
+    
     handleMouseLeave();
+    remoteHoverState = { row: -1, col: -1, width: 0, height: 0, playerIndex: 0 };
     
     const next = (state.activePlayer % state.playersCount) + 1;
     switchPlayer(next, false);
@@ -939,8 +1022,10 @@ async function handleJoinRoom() {
     }
     
     try {
-        const pName = document.getElementById('p1-name')?.value.trim() || "Guest Player";
-        const pColor = state.playerColors[2] || "pink";
+        const joinNameInput = document.getElementById('join-player-name');
+        const pName = joinNameInput?.value.trim() || document.getElementById('p2-name')?.value.trim() || "Neon Pink";
+        const joinColorBtn = document.querySelector('#join-colors .color-btn.active');
+        const pColor = joinColorBtn?.dataset.color || state.playerColors[2] || "pink";
         
         showToast(DOM, `Joining room ${code}...`);
         
@@ -955,6 +1040,9 @@ async function handleJoinRoom() {
         state.roomCode = result.room_code;
         state.localPlayerIndex = result.player_index;
         state.isHost = false;
+        
+        state.playerNames[result.player_index] = pName;
+        state.playerColors[result.player_index] = pColor;
         
         DOM.joinModal?.classList.remove("active");
         openLobbyModal(result.room_code);
@@ -1050,6 +1138,7 @@ function subscribeAndTrackRoom(roomId) {
             
             // Case 1: Active player changed (turn handed over)
             if (newGameState.active_player !== prevActivePlayer) {
+                remoteHoverState = { row: -1, col: -1, width: 0, height: 0, playerIndex: 0 };
                 state.activePlayer = newGameState.active_player;
                 state.currentRoll = newGameState.current_roll || [0, 0];
                 state.hasRolled = newGameState.has_rolled || false;
@@ -1250,7 +1339,47 @@ function setupEventListeners() {
     });
     
     // Auth & Room Buttons
-    DOM.googleAuthBtn?.addEventListener("click", signInWithGoogle);
+    DOM.googleAuthBtn?.addEventListener("click", async () => {
+        try {
+            await signInWithGoogle();
+        } catch (err) {
+            playErrorTone();
+            showToast(DOM, `Google Login error: ${err.message || "Provider not configured yet in Supabase."}`);
+        }
+    });
+    
+    DOM.userProfileBadge?.addEventListener("click", () => {
+        refreshProfileModalUI();
+        DOM.profileModal?.classList.add("active");
+    });
+    
+    DOM.closeProfileBtn?.addEventListener("click", () => {
+        DOM.profileModal?.classList.remove("active");
+    });
+    
+    DOM.profileSignOutBtn?.addEventListener("click", async () => {
+        try {
+            await signOutUser();
+            DOM.profileModal?.classList.remove("active");
+            DOM.googleAuthBtn?.classList.remove("hidden");
+            DOM.userProfileBadge?.classList.add("hidden");
+            showToast(DOM, "Signed out successfully.");
+        } catch (e) {
+            showToast(DOM, "Failed to sign out.");
+        }
+    });
+    
+    DOM.signOutBtn?.addEventListener("click", async () => {
+        try {
+            await signOutUser();
+            DOM.googleAuthBtn?.classList.remove("hidden");
+            DOM.userProfileBadge?.classList.add("hidden");
+            showToast(DOM, "Signed out successfully.");
+        } catch (e) {
+            showToast(DOM, "Failed to sign out.");
+        }
+    });
+
     DOM.createRoomBtn?.addEventListener("click", handleCreateRoom);
     DOM.joinRoomBtn?.addEventListener("click", () => DOM.joinModal?.classList.add("active"));
     DOM.joinCancelBtn?.addEventListener("click", () => DOM.joinModal?.classList.remove("active"));

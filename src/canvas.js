@@ -172,7 +172,15 @@ export function drawBoard(canvasElement, state, hoverState, remoteHoverState = n
     }
     
     // 6. Draw Remote Opponent Hover Preview (Broadcast in Multiplayer)
-    if (remoteHoverState && remoteHoverState.row !== -1 && remoteHoverState.col !== -1) {
+    if (
+        remoteHoverState &&
+        remoteHoverState.row >= 0 &&
+        remoteHoverState.col >= 0 &&
+        remoteHoverState.playerIndex === state.activePlayer &&
+        state.hasRolled &&
+        !isDrawingMode &&
+        !state.isGameOver
+    ) {
         const remotePlayer = remoteHoverState.playerIndex;
         const remoteTheme = state.colors[state.playerColors[remotePlayer]];
         if (remoteTheme) {

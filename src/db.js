@@ -38,6 +38,22 @@ export async function signInWithGoogle() {
     }
 }
 
+export async function signOutUser() {
+    try {
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+    } catch (e) {
+        console.error("Sign out error:", e);
+        throw e;
+    }
+}
+
+export function onAuthChange(callback) {
+    return supabase.auth.onAuthStateChange((event, session) => {
+        if (callback) callback(event, session);
+    });
+}
+
 export async function createOnlineRoom({ hostName, hostColor, gridSize, mapType, playersCount, enableAdvancedRules, enableTeamMode }) {
     try {
         const user = await getCurrentUser();
