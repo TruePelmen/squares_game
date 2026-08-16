@@ -50,3 +50,19 @@ Structure the frontend into dedicated ES6 modules:
 - **Dedicated 1-Click Copy**: Always provide an explicit "Copy Code" button with clipboard fallback (`navigator.clipboard.writeText` with `document.execCommand` fallback), icon swap animation (e.g. checkmark + "Copied!"), and toast notification.
 - **In-Game Room Code Badge**: Include an active room badge in the game header so players can easily view and copy the room code mid-game.
 
+### E. Transient Broadcast Hover Cleansing (Anti-Ghosting)
+- **Problem**: Opponent cursor/shape previews sent via Realtime Broadcast (`hover` event) can get stuck permanently on opponents' screens if not explicitly cleared when the mouse leaves the canvas, blocks are placed, or turns end.
+- **Remedies**:
+  1. **Strict Rendering Guards**: In Canvas render loop, only draw remote hover if `remoteHoverState.row >= 0 && remoteHoverState.playerIndex === state.activePlayer && state.hasRolled && !isDrawingMode && !state.isGameOver`.
+  2. **Active Broadcast Cleansing**: On `handleMouseLeave`, `handleGridClick`, `passTurn`, and `switchPlayer`, actively broadcast `{ row: -1, col: -1, width: 0, height: 0, playerIndex: state.localPlayerIndex }` and locally reset `remoteHoverState`.
+
+### F. Supabase OAuth Configuration & URL Whitelist Rules
+- **Provider Status (`Unsupported provider`)**: Always ensure the OAuth provider (e.g. Google) is enabled in Supabase Auth Providers with the full OAuth Client ID string (`*.apps.googleusercontent.com`), not an email.
+- **Google Cloud Callback**: Set Authorized redirect URIs in Google Cloud Console to `https://<project-ref>.supabase.co/auth/v1/callback`.
+- **Prevent `localhost:3000` OAuth Redirect Loop**: In Supabase **Authentication → URL Configuration**, update **Site URL** to production (`https://<app>.vercel.app`) and add `https://<app>.vercel.app/**` and `http://localhost:5173/**` to **Redirect URLs**.
+- **Auth State Synchronization**: Use `supabase.auth.onAuthStateChange` to reactively update profile badges, stats, and hide/show sign-in buttons across tabs and sessions. Ensure `.hidden { display: none !important; }` exists in global CSS.
+
+### G. Joining Guest Slot Decoupling
+- **Problem**: Reading player setup inputs from DOM (e.g. `#p1-name`) during `joinOnlineRoomByCode` copies host defaults ("Cyber Blue") onto guest players.
+- **Remedy**: Provide dedicated nickname and color selection directly inside the Join Room modal, with distinct defaults per slot (e.g. "Neon Pink" / pink for Player 2).
+
